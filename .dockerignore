@@ -1,0 +1,21 @@
+# Nada de esto va dentro de la imagen (secretos, datos, modelos y archivo)
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+datos
+modelos
+_archivo
+logs
+build.log
+venv*
+vision
+**/__pycache__
+**/*.bak
+*.whl
+*.deb
+*.zip
+*.tgz
+*.mp4
+.git

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CISA · Grabaciones</title>
+    <link rel="stylesheet" href="/static/css/grabaciones.css">
+  </head>
+  <body>
+
+    <div id="header">
+      <div class="logo">CISA</div>
+      <span class="nav-title">Grabaciones</span>
+      <div class="spacer"></div>
+      <a class="back-btn" href="/livevideo">Dashboard</a>
+    </div>
+
+    <div class="cam-tabs">
+      <div class="cam-tab active" data-cam="1" onclick="switchCam(1)">Cam 1</div>
+      <div class="cam-tab"        data-cam="2" onclick="switchCam(2)">Cam 2</div>
+    </div>
+
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat-item">Total: <span class="stat-val" id="stat-total">—</span></div>
+      <div class="stat-item">Espacio: <span class="stat-val" id="stat-size">—</span></div>
+      <div class="stat-item">Retenci&oacute;n: <span class="stat-val">72h</span></div>
+    </div>
+
+    <div id="content">
+      <div class="loading" id="loading">Cargando grabaciones...</div>
+    </div>
+
+    <div id="player-modal" onclick="if(event.target===this)closePlayer()">
+      <div id="player-box">
+        <button id="player-close" onclick="closePlayer()">&#10005;</button>
+        <video id="player-video" controls autoplay></video>
+        <div id="player-info">
+          <span id="player-title">—</span>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/js/grabaciones.js"></script>
+  </body>
+</html>

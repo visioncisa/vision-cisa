@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>CISA · Video en vivo</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+        <link href="static/css/Livevideo.css" type="text/css" rel="stylesheet">
+    </head>
+    <body>
+
+        <header id="header" style="position:relative;z-index:100;">
+        <div class="logo">cisa</div>
+        <span class="logo-sub">Video en vivo</span>
+        <div class="pills">
+            <span class="pill"><span class="dot" id="dot-yolo"></span><span id="txt-yolo">YOLO…</span></span>
+            <span class="pill"><span class="dot" id="dot-pg"></span><span id="txt-pg">PG</span></span>
+            <span class="pill"><span class="dot" id="dot-cam"></span><span id="txt-cam">CAM</span></span>
+        </div>
+        <div class="track-badge hidden" id="track-badge">🚌 <span id="track-txt">—</span></div>
+        <div class="spacer"></div>
+        <!-- Selector de cámara -->
+        <div class="cam-switch">
+            <button class="cam-btn active" id="btn-cam1" onclick="switchCamera(1)"><span class="cd"></span>Cam 1</button>
+            <button class="cam-btn" id="btn-cam2" onclick="switchCamera(2)"><span class="cd"></span>Cam 2</button>
+        </div>
+        <a class="hdr-link" href="/">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Dashboard
+        </a>
+        <span class="hora" id="hora">—</span>
+        </header>
+
+        <div id="main">
+        <div id="video-panel">
+            <span class="live-tag"><i></i> En vivo</span>
+            <img id="video" alt="">
+            <div id="vid-overlay">
+            <div class="spinner"></div>
+            <div class="overlay-txt">Conectando al stream…</div>
+            </div>
+            <div id="cam-switching">
+            <div class="sw-spinner"></div>
+            <div class="sw-text" id="sw-text">CONECTANDO CÁMARA…</div>
+            </div>
+        </div>
+
+        <div id="det-panel">
+            <div id="det-header">
+            <span class="panel-title">Detecciones</span>
+            <span id="panel-count">0</span>
+            </div>
+            <div id="tiles">
+            <div id="empty"><div class="empty-icon">🚌</div>Esperando detecciones…</div>
+            </div>
+        </div>
+        </div>
+
+        <!-- Modal -->
+        <div id="modal" onclick="if(event.target===this)closeModal()">
+        <div id="modal-box">
+            <button id="modal-close" onclick="closeModal()">✕</button>
+            <img id="modal-img" src="" alt="">
+            <div id="modal-body">
+            <div id="modal-num">—</div>
+            <div class="mrow"><span class="mlabel">OCR leyó</span><span class="mval" id="m-leido">—</span></div>
+            <div class="mrow"><span class="mlabel">Estado</span><span class="mval" id="m-estado">—</span></div>
+            <div class="mrow"><span class="mlabel">Confianza YOLO</span><span class="mval" id="m-conf">—</span></div>
+            <div class="mrow"><span class="mlabel">Hora</span><span class="mval" id="m-ts">—</span></div>
+            <div class="mrow"><span class="mlabel">Clase</span><span class="mval" id="m-cls">—</span></div>
+            </div>
+        </div>
+        </div>
+
+        <script src="static/js/Livevideo.js"></script> 
+    </body>
+</html>

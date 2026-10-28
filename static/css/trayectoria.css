@@ -1,0 +1,186 @@
+/* ════════════════════════════════════════════════════════════
+   trayectoria.css
+   Estilos para el modal de trayectoria detallada por unidad,
+   filas clickeables de la tabla y mini-Gantt por día.
+   Se carga junto con dashboard_v3.css (no lo reemplaza).
+   Usa las mismas variables de color que ya definiste ahí
+   (--blue, --red, --ok, --ink, --ink-2, --ink-3, --line...).
+   Si tu dashboard_v3.css no define esas variables con esos
+   nombres exactos, ajusta los var(--xxx) de abajo o reemplázalos
+   por los valores hex directos (#0b4f9e, #d72631, etc.)
+═══════════════════════════════════════════════════════════════ */
+
+/* Fila clickeable en la tabla de control de unidades */
+.unit-table tbody tr.tr-click {
+    cursor: pointer;
+    transition: background .12s ease;
+}
+.unit-table tbody tr.tr-click:hover {
+    background: rgba(11, 79, 158, .05);
+}
+
+.table-hint {
+    font-size: 12px;
+    color: var(--ink-3, #93a2b5);
+    padding: 2px 4px 10px;
+}
+
+/* ── Modal overlay ─────────────────────────────────────────── */
+.tray-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 31, 51, .55);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.tray-modal.show { display: flex; }
+
+.tray-box {
+    background: #fff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(15, 31, 51, .35);
+    padding: 26px 26px 20px;
+}
+
+.tray-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 32px; height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: #f1f4f8;
+    color: var(--ink-2, #54657c);
+    font-size: 15px;
+    cursor: pointer;
+    transition: background .12s ease;
+}
+.tray-close:hover { background: #e2e9f1; }
+
+.tray-head {
+    padding-right: 40px;
+    margin-bottom: 18px;
+}
+.tray-head-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    color: var(--ink, #0f1f33);
+    letter-spacing: .5px;
+}
+.tray-head-meta {
+    font-size: 13px;
+    color: var(--ink-3, #93a2b5);
+    margin-top: 2px;
+}
+.tray-head-dot { margin: 0 6px; }
+
+.tray-loading {
+    text-align: center;
+    padding: 40px 0;
+    color: var(--ink-3, #93a2b5);
+    font-size: 14px;
+}
+
+/* ── Mini-Gantt por día ───────────────────────────────────── */
+.tray-gantt-title,
+.tray-bit-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--ink-3, #93a2b5);
+    margin: 18px 0 8px;
+}
+.tray-gantt-title { margin-top: 0; }
+
+.tray-gantt-eje {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--ink-3, #93a2b5);
+    padding: 0 0 4px;
+    margin-left: 54px;
+}
+
+.tray-gantt-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+.tray-gantt-label {
+    width: 44px;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--ink-2, #54657c);
+    text-align: right;
+}
+.tray-gantt-track {
+    position: relative;
+    flex: 1;
+    height: 20px;
+    background: #f1f4f8;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.tray-gantt-bar {
+    position: absolute;
+    top: 2px; bottom: 2px;
+    border-radius: 3px;
+    background: var(--blue, #0b4f9e);
+    min-width: 2px;
+}
+.tray-gantt-bar.en-curso {
+    background: var(--ok, #1f9d57);
+    background-image: repeating-linear-gradient(
+        45deg, rgba(255,255,255,.25), rgba(255,255,255,.25) 4px,
+        transparent 4px, transparent 8px
+    );
+}
+
+/* ── Bitácora (lista cronológica) ─────────────────────────── */
+.tray-bit-list {
+    list-style: none;
+    margin: 0; padding: 0;
+}
+.tray-bit-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line, #e2e9f1);
+    font-size: 13px;
+}
+.tray-bit-item:last-child { border-bottom: none; }
+
+.tray-bit-fecha {
+    width: 48px;
+    flex-shrink: 0;
+    color: var(--ink-3, #93a2b5);
+    font-size: 11px;
+    padding-top: 2px;
+    text-transform: uppercase;
+}
+.tray-bit-tramo { color: var(--ink-2, #54657c); line-height: 1.5; }
+.tray-bit-tramo b { color: var(--ink, #0f1f33); }
+.tray-bit-dur {
+    color: var(--ink-3, #93a2b5);
+    font-size: 12px;
+}
+.tray-bit-live {
+    color: var(--ok, #1f9d57);
+    font-weight: 700;
+}
+.tray-bit-fuera {
+    font-size: 11px;
+    color: var(--ink-3, #93a2b5);
+    margin-top: 2px;
+}

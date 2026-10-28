@@ -1,0 +1,42 @@
+# CISA — sistema de visión en la Jetson
+#   docker compose up -d             arranca la detección y la grabación
+#   docker compose logs -f           ver los mensajes
+#   docker compose down              detiene las dos
+services:
+  cisa-vision:
+    build: .
+    image: cisa-vision:v1
+    container_name: cisa-vision
+    devices:
+      - nvidia.com/gpu=all          # GPU, driver y decodificador de video de la Jetson
+      - /dev/dri:/dev/dri
+    network_mode: host              # ve las cámaras y publica el puerto del .env (5001)
+    ipc: host
+    env_file: .env                  # contraseñas y configuración, fuera de la imagen
+    environment:
+      - TZ=America/Mexico_City      # misma hora que la Jetson (el día operativo depende de esto)
+    volumes:
+      - ./datos:/app/datos                    # base de datos (DB_PATH=datos/detecciones.db)
+      - ./modelos:/app/modelos:ro             # modelos YOLO
+      - ./padron.csv:/app/padron.csv:ro       # padrón de unidades
+      - /home/jetson/Documents/Jetson8:/home/jetson/Documents/Jetson8   # fotos, recortes y video de prueba
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    restart: "no"                   # en pruebas; cuando funcione: unless-stopped
+
+  cisa-grabacion:                   # graba la cámara 1, un archivo por hora, guarda 72 h
+    image: cisa-vision:v1           # la misma imagen (trae ffmpeg)
+    container_name: cisa-grabacion
+    command: ["bash", "scripts/grabar.sh", "_bucle"]
+    user: "1000:1000"               # los videos quedan a nombre del usuario jetson
+    init: true
+    stop_grace_period: 20s          # tiempo para cerrar bien el archivo en curso
+    network_mode: host
+    env_file: .env                  # RTSP_URL_CAMARA y GRABACIONES_DIR
+    environment:
+      - TZ=America/Mexico_City
+    volumes:
+      - /home/jetson/Documents/Jetson8:/home/jetson/Documents/Jetson8
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    restart: "no"

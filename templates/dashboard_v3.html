@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CISA · Centro de Monitoreo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/dashboard_v3.css">
+    <link rel="stylesheet" href="/static/css/trayectoria.css">
+</head>
+<body>
+
+    <!-- ══════════════════════════════════════════════════════
+         HEADER
+    ═══════════════════════════════════════════════════════════ -->
+    <header id="header">
+        <div class="logo">cisa</div>
+        <span class="logo-sub">Centro de Monitoreo</span>
+
+        <!-- Pills de estado (solo visibles en vista dev) -->
+        <div class="pills" id="pills-dev">
+            <span class="pill"><span class="dot" id="dot-yolo"></span><span id="txt-yolo">YOLO…</span></span>
+            <span class="pill"><span class="dot" id="dot-pg"></span><span id="txt-pg">PG</span></span>
+            <span class="pill"><span class="dot" id="dot-cam"></span><span id="txt-cam">CAM</span></span>
+        </div>
+
+        <div class="spacer"></div>
+
+        <!-- Toggle de vista -->
+        <div class="view-toggle" id="view-toggle">
+            <button class="vbtn active" id="vbtn-cliente" onclick="switchView('cliente')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                User
+            </button>
+            <button class="vbtn" id="vbtn-dev" onclick="switchView('dev')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                Desarrollador
+            </button>
+        </div>
+
+        <span class="demo-flag" id="demo-flag">● Datos de demostración</span>
+        <a class="hdr-link" href="/grabaciones">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/></svg>
+            Grabaciones
+        </a>
+        <span class="hora" id="hora">—</span>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════
+         APP WRAPPER
+    ═══════════════════════════════════════════════════════════ -->
+    <div id="app">
+
+        <!-- ── SIDEBAR ── -->
+        <aside id="side">
+
+            <!-- Video → live -->
+            <a class="video-card" href="/livevideo">
+                <div class="video-frame">
+                    <img class="video-snapshot" id="snapshot" alt="">
+                    <img class="video-live" id="live-video" alt="">
+                    <span class="cam-corner tl"></span><span class="cam-corner tr"></span>
+                    <span class="cam-corner bl"></span><span class="cam-corner br"></span>
+                    <span class="live-badge"><i></i> En vivo</span>
+                    <span class="cam-tag" id="snap-cam">CAM 1</span>
+                    <div class="play-orb"><div class="orb">
+                        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </div></div>
+                </div>
+                <div class="video-foot">
+                    <span class="vf-title">Cámara de acceso</span>
+                    <span class="vf-hint">Clic para ver en vivo →</span>
+                </div>
+            </a>
+
+            <!-- Última detección -->
+            <div class="card last-card">
+                <div class="card-head"><span class="card-title">Última detección</span></div>
+                <div class="last-body">
+                    <div class="last-num" id="last-num">----</div>
+                    <div class="chips">
+                        <span class="chip empresa" id="last-emp">—</span>
+                        <span class="chip zona"    id="last-zona">—</span>
+                        <span class="chip conf"    id="last-conf">—</span>
+                    </div>
+                    <div class="last-meta">
+                        <span>Movimiento: <b id="last-mov">—</b></span>
+                        <span class="last-time" id="last-time">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telegram (visible en ambas vistas) -->
+            <div class="card tg-card">
+                <div class="tg-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.6 19.8c-.2 1-.9 1.2-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.4-.9.4l.3-4.6 8.4-7.6c.4-.3-.1-.5-.6-.2L7.1 13l-4.5-1.4c-1-.3-1-1 .2-1.4l17.5-6.8c.8-.3 1.5.2 1.6 1z"/></svg>
+                </div>
+                <div>
+                    <div class="tg-num" id="tg-num">—</div>
+                    <div class="tg-lbl">Alertas enviadas a Telegram hoy</div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL ── -->
+        <main id="content">
+
+            <!-- ════════════════════════════════════════════
+                 VISTA CLIENTE
+            ═════════════════════════════════════════════════ -->
+            <div id="sec-cliente" class="view-section">
+
+                <!-- KPIs cliente: entradas, salidas, dentro ahora, prom estancia, total -->
+                <section class="kpis kpis-cliente">
+                    <div class="kpi green">
+                        <div class="kpi-lbl">Entradas hoy</div>
+                        <div class="kpi-val" id="c-ent">—</div>
+                        <div class="kpi-sub">unidades</div>
+                    </div>
+                    <div class="kpi red">
+                        <div class="kpi-lbl">Salidas hoy</div>
+                        <div class="kpi-val" id="c-sal">—</div>
+                        <div class="kpi-sub">unidades</div>
+                    </div>
+                    <div class="kpi blue">
+                        <div class="kpi-lbl">Dentro ahora</div>
+                        <div class="kpi-val" id="c-dentro">—</div>
+                        <div class="kpi-sub">en patio</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-lbl">Prom. estancia</div>
+                        <div class="kpi-val" id="c-prom-est" style="font-size:28px;letter-spacing:0">—</div>
+                        <div class="kpi-sub">tiempo promedio</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-lbl">Total acumulado</div>
+                        <div class="kpi-val" id="c-total">—</div>
+                        <div class="kpi-sub">histórico</div>
+                    </div>
+                </section>
+
+                <!-- Flujo + Dentro ahora por empresa -->
+                <section class="row-2">
+
+                    <!-- Flujo con selector de periodo -->
+                    <div class="panel panel-flujo">
+                        <div class="panel-head">
+                            <div class="panel-h-l">
+                                <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg></span>
+                                <h3>Flujo de unidades</h3>
+                            </div>
+                            <div class="period-btns">
+                                <button class="pbtn active" data-period="hoy"    onclick="setPeriod(this)">Día</button>
+                                <button class="pbtn"        data-period="semana" onclick="setPeriod(this)">Semana</button>
+                                <button class="pbtn"        data-period="mes"    onclick="setPeriod(this)">Mes</button>
+                                <button class="pbtn"        data-period="anio"   onclick="setPeriod(this)">Año</button>
+                            </div>
+                            <div class="legend">
+                                <span class="lg"><i style="background:var(--ok)"></i>Entradas</span>
+                                <span class="lg"><i style="background:var(--red)"></i>Salidas</span>
+                            </div>
+                        </div>
+                        <div class="chart-wrap h-flujo"><canvas id="flujoChartCliente"></canvas></div>
+                    </div>
+
+                    <!-- Empresas en patio -->
+                    <div class="panel">
+                        <div class="panel-head"><div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg></span>
+                            <h3>Dentro del patio ahora</h3>
+                        </div></div>
+                        <div id="dentro-empresa-bars" class="empresa-bars"></div>
+                        <div class="estancia-promedios" id="estancia-promedios"></div>
+                    </div>
+
+                </section>
+
+                <!-- Tabla de control de unidades -->
+                <section class="panel panel-tabla">
+                    <div class="panel-head" style="flex-wrap:wrap;gap:10px">
+                        <div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg></span>
+                            <h3>Control de unidades — movimientos del periodo</h3>
+                        </div>
+                        <div class="table-filters">
+                            <input  type="text"   id="filter-search"  placeholder="Buscar unidad…" oninput="filterUnidades()">
+                            <select id="filter-emp" onchange="filterUnidades()">
+                                <option value="">Empresa</option>
+                                <option value="CISA">CISA</option>
+                                <option value="COPATSA">COPATSA</option>
+                                <option value="CCISA">CCISA</option>
+                            </select>
+                            <select id="filter-status" onchange="filterUnidades()">
+                                <option value="">Estado</option>
+                                <option value="dentro">Dentro</option>
+                                <option value="fuera">Fuera</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-hint">Clic en una unidad para ver su trayectoria detallada</div>
+                    <div class="table-wrap">
+                        <table class="unit-table" id="unit-table">
+                            <thead>
+                                <tr>
+                                    <th>Unidad</th>
+                                    <th>Empresa</th>
+                                    <th>Último ingreso</th>
+                                    <th>Última salida</th>
+                                    <th>T. dentro</th>
+                                    <th>T. fuera</th>
+                                    <th class="col-viajes">Viajes</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="unit-tbody"></tbody>
+                        </table>
+                        <div class="table-empty" id="table-empty" style="display:none">
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                            <span>Sin resultados</span>
+                        </div>
+                    </div>
+                    <div class="table-footer" id="table-footer"></div>
+                </section>
+
+                <div class="footnote">CISA · sistema de lectura de número económico · YOLO + OCR</div>
+            </div>
+
+            <!-- ════════════════════════════════════════════
+                 VISTA DESARROLLADOR
+            ═════════════════════════════════════════════════ -->
+            <div id="sec-dev" class="view-section" style="display:none">
+
+                <!-- KPIs dev: detecciones, descartadas, no en padrón, conf prom, cooldown -->
+                <section class="kpis kpis-dev">
+                    <div class="kpi">
+                        <div class="kpi-lbl">Detecciones hoy</div>
+                        <div class="kpi-val" id="k-hoy">—</div>
+                        <div class="kpi-sub" id="k-hoy-sub">&nbsp;</div>
+                    </div>
+                    <div class="kpi green">
+                        <div class="kpi-lbl">Entradas</div>
+                        <div class="kpi-val" id="k-ent">—</div>
+                        <div class="kpi-sub">unidades hoy</div>
+                    </div>
+                    <div class="kpi red">
+                        <div class="kpi-lbl">Salidas</div>
+                        <div class="kpi-val" id="k-sal">—</div>
+                        <div class="kpi-sub">unidades hoy</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-lbl">Promedio / hora</div>
+                        <div class="kpi-val" id="k-prom">—</div>
+                        <div class="kpi-sub">detecciones</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-lbl">Total acumulado</div>
+                        <div class="kpi-val" id="k-total">—</div>
+                        <div class="kpi-sub">histórico</div>
+                    </div>
+                    <div class="kpi red">
+                        <div class="kpi-lbl">Unidad más vista</div>
+                        <div class="kpi-val" id="k-top" style="font-family:'Share Tech Mono',monospace;font-size:30px;letter-spacing:2px">—</div>
+                        <div class="kpi-sub" id="k-top-sub">&nbsp;</div>
+                    </div>
+                </section>
+
+                <!-- Flujo por hora (mismo de antes) + Zona + Empresa -->
+                <section class="panel">
+                    <div class="panel-head">
+                        <div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg></span>
+                            <h3>Flujo de autobuses por hora</h3>
+                        </div>
+                        <div class="legend">
+                            <span class="lg"><i style="background:var(--blue)"></i>Entradas</span>
+                            <span class="lg"><i style="background:var(--red)"></i>Salidas</span>
+                        </div>
+                    </div>
+                    <div class="chart-wrap h-flujo"><canvas id="flujoChart"></canvas></div>
+                </section>
+
+                <!-- Empresa · Zona · Top unidades -->
+                <section class="row-3">
+                    <div class="panel">
+                        <div class="panel-head"><div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg></span>
+                            <h3>Por empresa</h3>
+                        </div></div>
+                        <div class="chart-wrap h-donut donut-box">
+                            <canvas id="empresaChart"></canvas>
+                            <div class="donut-center"><span class="dc-num" id="emp-total">—</span><span class="dc-lbl">Total</span></div>
+                        </div>
+                        <div class="legend" id="emp-legend" style="margin-top:14px;justify-content:center"></div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-head"><div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M9 6v12"/></svg></span>
+                            <h3>Por zona del bus</h3>
+                        </div></div>
+                        <div class="chart-wrap h-donut donut-box">
+                            <canvas id="zonaChart"></canvas>
+                            <div class="donut-center"><span class="dc-num" id="zona-total">—</span><span class="dc-lbl">Lecturas</span></div>
+                        </div>
+                        <div class="legend" id="zona-legend" style="margin-top:14px;justify-content:center"></div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-head"><div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+                            <h3>Unidades más detectadas</h3>
+                        </div></div>
+                        <div class="unidades" id="unidades"></div>
+                    </div>
+                </section>
+
+                <!-- Pipeline + BD (solo dev) -->
+                <section class="row-2-equal">
+                    <div class="panel">
+                        <div class="panel-head"><div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="6" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/><path d="M4 7h16M4 17h16"/></svg></span>
+                            <h3>Pipeline de modelos</h3>
+                        </div></div>
+                        <div class="dev-stat-list" id="pipeline-stats">
+                            <div class="dev-stat-row"><span>M1 — detección autobús</span><span class="dev-stat-val" id="d-m1-fps">— fps</span></div>
+                            <div class="dev-stat-row"><span>M2 — zona del número</span><span class="dev-stat-val" id="d-m2-fps">—</span></div>
+                            <div class="dev-stat-row"><span>M3 — dígitos OCR</span><span class="dev-stat-val" id="d-m3-fps">—</span></div>
+                            <div class="dev-stat-row sep"><span>Cola M2M3 (items)</span><span class="dev-stat-val" id="d-cola">0</span></div>
+                            <div class="dev-stat-row"><span>Votos para confirmar</span><span class="dev-stat-val" id="d-votos">3 mín.</span></div>
+                            <div class="dev-stat-row"><span>Frames capturados hoy</span><span class="dev-stat-val" id="d-frames">—</span></div>
+                            <div class="dev-stat-row"><span>Descartadas / erróneas</span><span class="dev-stat-val err" id="d-descartadas">—</span></div>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-head"><div class="panel-h-l">
+                            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg></span>
+                            <h3>Base de datos</h3>
+                        </div></div>
+                        <div class="dev-stat-list">
+                            <div class="dev-stat-row"><span>Eventos hoy</span><span class="dev-stat-val" id="d-eventos">—</span></div>
+                            <div class="dev-stat-row"><span>Estancias abiertas</span><span class="dev-stat-val ok" id="d-estancias-abiertas">—</span></div>
+                            <div class="dev-stat-row"><span>No en padrón hoy</span><span class="dev-stat-val warn" id="d-no-padron">—</span></div>
+                            <div class="dev-stat-row sep"><span>WAL mode</span><span class="dev-stat-val ok">activo</span></div>
+                            <div class="dev-stat-row"><span>Pendientes Telegram</span><span class="dev-stat-val" id="d-tg-pending">—</span></div>
+                            <div class="dev-stat-row"><span>Conexión cámara</span><span class="dev-stat-val" id="d-cam-ok">—</span></div>
+                            <div class="dev-stat-row"><span>Crops guardados hoy</span><span class="dev-stat-val" id="d-crops">—</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="footnote">CISA · pipeline interno · Jetson Orin · YOLO TensorRT + SQLite WAL</div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         MODAL — TRAYECTORIA DETALLADA DE UNA UNIDAD
+    ═══════════════════════════════════════════════════════════ -->
+    <div id="tray-modal" class="tray-modal" onclick="if(event.target===this)closeTrayectoria()">
+        <div class="tray-box">
+            <button class="tray-close" onclick="closeTrayectoria()">✕</button>
+            <div class="tray-head">
+                <div class="tray-head-num" id="tray-numero">—</div>
+                <div class="tray-head-meta">
+                    <span id="tray-empresa">—</span>
+                    <span class="tray-head-dot">·</span>
+                    <span id="tray-rango">—</span>
+                </div>
+            </div>
+            <div id="tray-body" class="tray-body">
+                <div class="tray-loading">Cargando trayectoria…</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/static/js/dashboard_v3.js"></script>
+</body>
+</html>
