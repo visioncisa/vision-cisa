@@ -16,13 +16,17 @@ var C = {
     ink:'#0f1f33',  ink2:'#54657c',   ink3:'#93a2b5',
     line:'#e2e9f1',
     amber:'#e08a1e', teal:'#1f9d9d',  gray:'#9aa7b8',
-    ok:'#1f9d57',   blue2:'#1a7abd'
+    ok:'#1f9d57',   blue2:'#1a7abd', purple:'#7b5ea7'
 };
 
+// Empresas del padrón (padron.csv, columna empresa). Si se agrega una
+// empresa nueva al padrón, agrégala aquí y en el filtro de dashboard_v3.html.
 var EMPRESA_COLOR = {
-    'CISA':        C.blue,
-    'COPATSA':     C.red,
-    'CCISA':       C.teal,
+    'CCA':         C.blue,
+    'CISA':        C.red,
+    'CORENSA':     C.amber,
+    'SKYBUS':      C.teal,
+    'VYCSA':       C.purple,
     'Desconocida': C.gray
 };
 
@@ -820,6 +824,8 @@ function pollEstado() {
             if (d.active_camera) $('snap-cam').textContent = 'CAM '+d.active_camera;
 
             if ($('d-m1-fps'))       $('d-m1-fps').textContent       = (d.yolo_fps||'—')+' fps';
+            if ($('d-m2-fps'))       $('d-m2-fps').textContent       = (d.m2_fps||0)+' fps';
+            if ($('d-m3-fps'))       $('d-m3-fps').textContent       = (d.m3_por_seg||0)+' lect/s';
             if ($('d-cola'))         $('d-cola').textContent          = d.queue_size != null ? d.queue_size : '0';
             if ($('d-descartadas'))  $('d-descartadas').textContent   = d.descartadas != null ? d.descartadas : '—';
             if ($('d-frames'))       $('d-frames').textContent        = d.frame_count != null ? nf(d.frame_count) : '—';

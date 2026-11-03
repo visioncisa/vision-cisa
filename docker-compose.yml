@@ -1,7 +1,8 @@
 # CISA — sistema de visión en la Jetson
 #   docker compose up -d             arranca la detección y la grabación
 #   docker compose logs -f           ver los mensajes
-#   docker compose down              detiene las dos
+#   docker compose down              detiene todo
+#   docker compose logs -f cisa-whatsapp   QR de WhatsApp (solo la primera vez)
 services:
   cisa-vision:
     build: .
@@ -39,4 +40,19 @@ services:
       - /home/jetson/Documents/Jetson8:/home/jetson/Documents/Jetson8
       - /etc/localtime:/etc/localtime:ro
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    restart: "no"
+
+  cisa-whatsapp:                    # manda por WhatsApp los mismos avisos del grupo de Telegram
+    build: ./whatsapp
+    image: cisa-whatsapp:v1
+    container_name: cisa-whatsapp
+    network_mode: host              # escucha solo en 127.0.0.1:5002 (la propia Jetson)
+    init: true
+    environment:
+      - TZ=America/Mexico_City
+      - WHATSAPP_PUERTO=5002
+      - WHATSAPP_EMISOR=${WHATSAPP_EMISOR:-}   # del .env: vincular con código en vez de QR
+    volumes:
+      - ./whatsapp/sesion:/app/sesion   # sesión de WhatsApp Web: NO se comparte ni se sube a GitHub
+      - /etc/localtime:/etc/localtime:ro
     restart: "no"

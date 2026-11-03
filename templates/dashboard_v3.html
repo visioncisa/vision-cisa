@@ -189,9 +189,12 @@
                             <input  type="text"   id="filter-search"  placeholder="Buscar unidad…" oninput="filterUnidades()">
                             <select id="filter-emp" onchange="filterUnidades()">
                                 <option value="">Empresa</option>
+                                <option value="CCA">CCA</option>
                                 <option value="CISA">CISA</option>
-                                <option value="COPATSA">COPATSA</option>
-                                <option value="CCISA">CCISA</option>
+                                <option value="CORENSA">CORENSA</option>
+                                <option value="SKYBUS">SKYBUS</option>
+                                <option value="VYCSA">VYCSA</option>
+                                <option value="Desconocida">Fuera del padrón</option>
                             </select>
                             <select id="filter-status" onchange="filterUnidades()">
                                 <option value="">Estado</option>
@@ -329,7 +332,7 @@
                             <div class="dev-stat-row"><span>M2 — zona del número</span><span class="dev-stat-val" id="d-m2-fps">—</span></div>
                             <div class="dev-stat-row"><span>M3 — dígitos OCR</span><span class="dev-stat-val" id="d-m3-fps">—</span></div>
                             <div class="dev-stat-row sep"><span>Cola M2M3 (items)</span><span class="dev-stat-val" id="d-cola">0</span></div>
-                            <div class="dev-stat-row"><span>Votos para confirmar</span><span class="dev-stat-val" id="d-votos">3 mín.</span></div>
+                            <div class="dev-stat-row"><span>Votos para confirmar</span><span class="dev-stat-val" id="d-votos">2 mín.</span></div>
                             <div class="dev-stat-row"><span>Frames capturados hoy</span><span class="dev-stat-val" id="d-frames">—</span></div>
                             <div class="dev-stat-row"><span>Descartadas / erróneas</span><span class="dev-stat-val err" id="d-descartadas">—</span></div>
                         </div>

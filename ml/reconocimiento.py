@@ -42,20 +42,42 @@ def leer_digitos(crop_bgr):
     if not res or len(res[0].boxes) == 0:
         return None
 
-    digitos = []
+    cajas = []
     for box in res[0].boxes:
         x1, _, x2, _ = map(int, box.xyxy[0])
         digito = modelos.CLASE_A_DIGITO.get(
             modelos.model_digitos.names[int(box.cls[0])])
         if digito is not None:
-            digitos.append(((x1 + x2) / 2, digito))
+            cajas.append((x1, x2, float(box.conf[0]), digito))
 
+    digitos = quitar_encimados(cajas)
     if not digitos:
         return None
-
-    digitos.sort(key=lambda d: d[0])
-    numero = ''.join(d[1] for d in digitos)
+    numero = ''.join(d[3] for d in digitos)
     return numero if numero.isdigit() else None
+
+
+def quitar_encimados(cajas, max_traslape=0.5):
+    """
+    El modelo a veces marca dos cajas sobre el MISMO dígito (p. ej. un "5" y un
+    "6" encimados), y al pegarlas salía "255555" en vez de "255". Si dos cajas
+    se enciman más de max_traslape del ancho de la más angosta, se queda la de
+    mayor confianza. Devuelve las cajas que quedan, de izquierda a derecha.
+    cajas: [(x1, x2, conf, digito), ...]
+    """
+    quedan = []
+    for c in sorted(cajas, key=lambda c: -c[2]):            # la más segura primero
+        x1, x2 = c[0], c[1]
+        encimada = False
+        for q in quedan:
+            traslape = min(x2, q[1]) - max(x1, q[0])
+            angosta  = max(1, min(x2 - x1, q[1] - q[0]))
+            if traslape / angosta > max_traslape:
+                encimada = True
+                break
+        if not encimada:
+            quedan.append(c)
+    return sorted(quedan, key=lambda c: (c[0] + c[1]) / 2)
 
 
 def validar_numero(numero):

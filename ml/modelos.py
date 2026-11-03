@@ -33,6 +33,27 @@ CLASE_A_DIGITO = {
 print(f"[INFO] ✓ Mapeo dígitos  : {CLASE_A_DIGITO}")
 
 
+# ── Calentamiento: cada modelo se inicializa en la GPU AHORA, uno por uno ─────
+# TensorRT carga el motor la primera vez que se usa. Si eso pasa con los hilos
+# ya corriendo (p. ej. M3 al leer el primer número mientras M1 usa la GPU),
+# los dos chocan: "CUDA error ... stream capture". Al importar este archivo
+# todavía no hay hilos, así que aquí no puede pasar.
+def _calentar():
+    import numpy as np
+    negro = np.zeros((720, 1280, 3), dtype=np.uint8)
+    for nombre, modelo, imgsz in (("M1", model_autobus, 640),
+                                  ("M2", model_zona, 1280),
+                                  ("M3", model_digitos, 640)):
+        try:
+            modelo.predict(negro, device=0, verbose=False, imgsz=imgsz)
+            print(f"[INFO] ✓ {nombre} listo en la GPU")
+        except Exception as e:
+            print(f"[INFO] ✗ {nombre} no se pudo calentar: {e}")
+
+
+_calentar()
+
+
 # ── Helpers de zona — usan el índice de clase, no el nombre ───────────────────
 def tipo_zona(cls_id: int) -> str:
     """Devuelve 'delantero', 'lateral' o 'trasera' según el índice de clase."""

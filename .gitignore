@@ -49,3 +49,7 @@ build.log
 # Modelos de IA (se mantienen fuera de GitHub)
 modelos/
 config.py.antes_votos
+
+# WhatsApp: sesión (equivale a la contraseña de la cuenta) y librerías
+whatsapp/sesion/
+whatsapp/node_modules/

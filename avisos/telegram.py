@@ -1,9 +1,11 @@
 """
-CISA - Alertas con dirección, tipo y empresa
+avisos/telegram.py — CISA: avisos al grupo de Telegram (dirección, tipo y empresa),
+botones del validador y validación con Gemini (avisos/gemini.py).
 """
 import json, os, requests, threading, time
 from config import (TG_TOKEN, TG_CHAT_ID, TG_VALIDADOR_IDS, ID_PUERTA, UNIDADES_INFO,
                     SIN_TELEGRAM, VALIDAR_CON_GEMINI)
+from avisos import whatsapp as whatsapp_avisos
 
 TG_API = f"https://api.telegram.org/bot{TG_TOKEN}"
 _pendientes = {}
@@ -41,7 +43,7 @@ def set_validation_callback(fn):
 
 def _get_info(numero):
     info = UNIDADES_INFO.get(str(numero), {})
-    return info.get("empresa", "CISA"), info.get("tipo", "diesel")
+    return info.get("empresa", "Desconocida"), info.get("tipo", "diesel")   # fuera del padrón
 
 def _fmt_dir(d):   return "🟢 *ENTRADA*" if d == "entrada" else "🔴 *SALIDA*"
 def _fmt_tipo(t):  return "⚡ Eléctrica" if t == "electrica" else "🛢️ Diesel"
@@ -49,6 +51,8 @@ def _fmt_emp(e):
     return {"CISA": "🏢 CISA", "COPATSA": "🚌 COPATSA", "CCA": "🔵 CCA"}.get(e, f"🚍 {e}")
 
 def _foto(chat_id, frame_path, caption, reply_markup=None):
+    if str(chat_id) == str(TG_CHAT_ID):
+        whatsapp_avisos.enviar(caption, frame_path)   # el mismo aviso del grupo, por WhatsApp
     if SIN_TELEGRAM:
         print(f"[SIN TELEGRAM] foto: {caption.splitlines()[0][:60]}")
         return None
@@ -286,7 +290,7 @@ def alerta_pipeline_error():
 
 
 # ─── Validación automática con LLM ───────────────────────────────
-from validar_llm import validar_con_llm, APROBADO, NO_CONFIRMADO, FALLBACK
+from avisos.gemini import validar_con_llm, APROBADO, NO_CONFIRMADO, FALLBACK
 from config import UNIDADES_VALIDAS
 
 LLM_ACTIVO = VALIDAR_CON_GEMINI   # False = todo al flujo humano de siempre (ver config.py)

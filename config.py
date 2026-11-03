@@ -60,6 +60,10 @@ CONF_DIGITO       = 0.45
 PAD_RATIO         = 0.08   # margen alrededor de la zona del número
 PAD_RATIO_LATERAL = 0.25   # más contexto para números laterales
 N_VOTOS           = 2      # lecturas iguales para confirmar un número
+# Número que M3 lee una y otra vez igual pero NO está en el padrón (p. ej. 2508):
+# con estas lecturas iguales se registra tal cual, como "fuera del padrón", en vez
+# de "corregirlo" a uno parecido del padrón (2508 → 508 → 5008).
+VOTOS_FUERA_PADRON = int(os.getenv("VOTOS_FUERA_PADRON", "4"))
 
 BBOX_MIN_POR_TIPO = {      # tamaño mínimo (px) de la zona del número
     'delantero': 80,
@@ -69,7 +73,12 @@ BBOX_MIN_POR_TIPO = {      # tamaño mínimo (px) de la zona del número
 BBOX_MIN_AUTOBUS = 30      # tamaño mínimo (px) del autobús
 
 # ── Rendimiento ───────────────────────────────────────────────────────────────
-YOLO_FPS_MAX = float(os.getenv("YOLO_FPS_MAX", "0"))   # 0 = sin límite (solo cuadros nuevos)
+YOLO_FPS_MAX   = float(os.getenv("YOLO_FPS_MAX", "0"))    # M1. 0 = sin límite (solo cuadros nuevos)
+M2_FPS_MAX     = float(os.getenv("M2_FPS_MAX", "5"))      # M2+M3 (lectura del número). 0 = sin límite
+CROPS_CADA_SEG = float(os.getenv("CROPS_CADA_SEG", "1"))  # crops de zona a disco: 1 cada N seg por camión (0 = todos)
+MAX_ZONAS_POR_BUS = 2      # lecturas de M3 por camión en cada cuadro
+MAX_LECTURAS_M3   = 4      # lecturas de M3 por cuadro en total, haya los camiones que haya
+RELECTURA_SEG     = 2.0    # camión con número ya confirmado que no ha cruzado: se relee cada N seg
 
 # ── Cruce de la línea y registro ──────────────────────────────────────────────
 LINEA_P1       = tuple(int(x) for x in os.getenv("LINEA_P1", "455,479").split(","))
@@ -78,7 +87,11 @@ LADO_ENTRADA   = os.getenv("LADO_ENTRADA", "izquierda")
 MANIOBRA_SEG   = int(os.getenv("MANIOBRA_SEG", 20))        # regreso antes de esto = maniobra
 DEBOUNCE_SEG   = int(os.getenv("DEBOUNCE_SEG", 60))        # mismo número no se repite antes de esto
 ESPERA_FIN_SEG = float(os.getenv("ESPERA_FIN_SEG", "2"))   # seg sin ver al camión = ya pasó
-ESPERA_MAX_SEG = float(os.getenv("ESPERA_MAX_SEG", "10"))  # máximo a esperar más lecturas
+ESPERA_MAX_SEG = float(os.getenv("ESPERA_MAX_SEG", "25"))  # máximo a esperar; debe ser mayor que MANIOBRA_SEG
+# Margen alrededor de la línea (px de la imagen original). El camión solo "cambia de
+# lado" cuando su centro se aleja más que esto de la línea; así el temblor de la
+# detección con el camión parado encima no cuenta como cruces.
+MARGEN_LINEA_PX = float(os.getenv("MARGEN_LINEA_PX", "30"))
 ID_PUERTA      = int(os.getenv("ID_PUERTA"))
 
 # ── Telegram y validación con Gemini ──────────────────────────────────────────
@@ -95,6 +108,12 @@ VALIDAR_CON_GEMINI = _bool("VALIDAR_CON_GEMINI", defecto=not SIN_TELEGRAM)
 if VALIDAR_CON_GEMINI and not GEMINI_API_KEY:
     print("[CONFIG] VALIDAR_CON_GEMINI está activo pero falta GEMINI_API_KEY en el .env: se apaga.")
     VALIDAR_CON_GEMINI = False
+
+# ── WhatsApp (servicio cisa-whatsapp, carpeta whatsapp/) ──────────────────────
+# Número que recibe los mismos avisos del grupo de Telegram, con lada de país:
+# México = 52 + 10 dígitos (ej. 525512345678). Vacío = WhatsApp apagado.
+WHATSAPP_NUMERO = "".join(c for c in (os.getenv("WHATSAPP_NUMERO") or "") if c.isdigit()) or None
+WHATSAPP_URL    = os.getenv("WHATSAPP_URL", "http://127.0.0.1:5002")
 
 # ── Directorios ───────────────────────────────────────────────────────────────
 FRAMES_DIR      = Path(os.getenv("FRAMES_DIR"))

@@ -5,7 +5,7 @@ Capa de persistencia CISA — SQLite (Jetson Orin). Es el ÚNICO módulo
 que habla con la base de datos.
 
 Sin datos duplicados:
-    * El esquema vive solo en schema.sql.
+    * El esquema vive solo en metricas/schema.sql.
     * El padrón vive solo en padron.csv (config.UNIDADES_INFO); al
       arrancar, la tabla `unidad` se sincroniza con ese archivo.
     * Eventos y estancias guardan solo id_unidad; número, empresa y
@@ -50,8 +50,7 @@ from config import HORA_CORTE_DIA, UNIDADES_VALIDAS, UNIDADES_INFO, ID_PUERTA, D
 log = logging.getLogger(__name__)
 
 # ── Rutas ────────────────────────────────────────────────────
-_BASE   = Path(__file__).resolve().parent.parent
-SCHEMA  = _BASE / "schema.sql"
+SCHEMA  = Path(__file__).resolve().parent / "schema.sql"   # metricas/schema.sql
 VERSION_ESQUEMA = 1
 
 # ── Conexión por hilo ────────────────────────────────────────

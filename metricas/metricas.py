@@ -20,7 +20,7 @@ detalle.
 import time
 import datetime as _dt
 
-from config import HORA_CORTE_DIA
+from config import HORA_CORTE_DIA, UNIDADES_INFO
 from metricas import storage
 
 _DIAS_ES  = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
@@ -162,7 +162,9 @@ def datos_dashboard():
     u          = storage.ultima()
 
     det_hoy = det_ayer = entradas = salidas = 0
-    por_empresa = {"CISA": 0, "COPATSA": 0, "CCISA": 0, "Desconocida": 0}
+    # Las empresas salen del padrón (padron.csv), así una empresa nueva aparece sola
+    por_empresa = {e: 0 for e in sorted({i["empresa"] for i in UNIDADES_INFO.values()})}
+    por_empresa["Desconocida"] = 0
     por_zona    = {"Delantero": 0, "Trasero": 0, "Lateral": 0}
     unidades, horas_hoy = {}, set()
 

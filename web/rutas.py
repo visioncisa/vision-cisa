@@ -12,7 +12,7 @@ import time
 import datetime as _dt
 
 import cv2
-from flask import jsonify, send_file, make_response, render_template, request, Response
+from flask import jsonify, send_from_directory, make_response, render_template, request, Response
 
 from config import (
     RTSP_URL, RTSP_URL_CAM2, UNIDADES_VALIDAS, FRAMES_DIR, CROPS_DIR, GRABACIONES_DIR,
@@ -138,6 +138,8 @@ def health():
             "status":            "ok",
             "conexion":          estado.STATE["conexion"],
             "yolo_fps":          estado.STATE["yolo_fps"],
+            "m2_fps":            estado.STATE["m2_fps"],
+            "m3_por_seg":        estado.STATE["m3_por_seg"],
             "total_detecciones": estado.STATE["total_detecciones"],
             "descartadas":       estado.STATE["descartadas"],
             "ultimo_numero":     estado.STATE["numero"],
@@ -147,10 +149,8 @@ def health():
 # ── Fotos de las detecciones ──────────────────────────────────────────────────
 @app.route('/frames/<path:filename>')
 def serve_frame(filename):
-    filepath = os.path.join(FRAMES_DIR, filename)
-    if not os.path.exists(filepath):
-        return '', 404
-    return send_file(filepath, mimetype='image/jpeg')
+    # send_from_directory rechaza rutas con "../": solo sirve lo que está en FRAMES_DIR
+    return send_from_directory(str(FRAMES_DIR), filename, mimetype='image/jpeg')
 
 
 # ── Miniaturas chicas para la lista de detecciones ────────────────────────────
@@ -227,11 +227,8 @@ def api_grabaciones():
 
 @app.route('/grabaciones/file/<int:cam_id>/<filename>')
 def grabaciones_file(cam_id, filename):
-    rec_dir = _dir_grabacion(cam_id)
-    path = os.path.join(rec_dir, filename)
-    if not os.path.exists(path):
-        return '', 404
-    return send_file(path, mimetype='video/mp4')
+    # Igual que /frames: solo archivos dentro de la carpeta de grabaciones
+    return send_from_directory(_dir_grabacion(cam_id), filename, mimetype='video/mp4')
 
 
 @app.route('/api/crops/stats')

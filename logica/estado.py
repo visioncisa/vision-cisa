@@ -17,6 +17,8 @@ STATE = {
     "numero":            None,
     "ts":                None,
     "yolo_fps":          0.0,
+    "m2_fps":            0.0,     # cuadros por segundo de M2 (lectura de zona)
+    "m3_por_seg":        0.0,     # lecturas de dígitos por segundo (M3)
     "frame_count":       0,
     "total_detecciones": 0,
     "descartadas":       0,

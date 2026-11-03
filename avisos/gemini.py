@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-validar_llm.py — Motor de validación con LLM (Gemini Flash)
+avisos/gemini.py — Motor de validación con LLM (Gemini Flash)
 Proyecto CISA — versión adaptada a la arquitectura modular v2.
 
 
 Prueba standalone en la Jetson (sin tocar el servicio):
-  docker compose exec cisa-vision python3 validar_llm.py <ruta_del_frame>.jpg 5038
+  docker compose exec cisa-vision python3 -m avisos.gemini <ruta_del_frame>.jpg 5038
 """
 
 import base64
@@ -160,7 +160,7 @@ def validar_con_llm(ruta_frame, lectura_ocr, unidades_validas, ruta_crop=None):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Uso: python validar_llm.py <ruta_imagen> [lectura_ocr]")
+        print("Uso: python3 -m avisos.gemini <ruta_imagen> [lectura_ocr]")
         sys.exit(1)
     try:
         from config import UNIDADES_VALIDAS as PADRON

@@ -8,9 +8,11 @@ cruce, el problema (o las coordenadas LINEA_P1/P2) está aquí.
 
 ================================================================
 """
+import math
 import threading
 
-from config import LINEA_P1, LINEA_P2, LADO_ENTRADA, MANIOBRA_SEG, DEBOUNCE_SEG
+from config import (LINEA_P1, LINEA_P2, LADO_ENTRADA, MANIOBRA_SEG, DEBOUNCE_SEG,
+                    MARGEN_LINEA_PX)
 
 _estado_tracks = {}
 _debounce_nums = {}
@@ -22,6 +24,14 @@ def lado_actual(cx, cy):
     x2, y2 = LINEA_P2
     cruz = (x2 - x1) * (cy - y1) - (y2 - y1) * (cx - x1)
     return 'izquierda' if cruz > 0 else 'derecha'
+
+
+def distancia_linea(cx, cy):
+    """Distancia (px) del centro del camión a la línea."""
+    x1, y1 = LINEA_P1
+    x2, y2 = LINEA_P2
+    cruz = (x2 - x1) * (cy - y1) - (y2 - y1) * (cx - x1)
+    return abs(cruz) / (math.hypot(x2 - x1, y2 - y1) or 1.0)
 
 
 def evaluar_cruce(track_id, cx, cy, numero, timestamp):
@@ -43,6 +53,8 @@ def evaluar_cruce(track_id, cx, cy, numero, timestamp):
 
         if lado == estado_t['lado']:
             return None
+        if distancia_linea(cx, cy) < MARGEN_LINEA_PX:
+            return None        # dentro del margen: todavía no cambia de lado
 
         lado_anterior   = estado_t['lado']
         estado_t['lado'] = lado
@@ -72,6 +84,14 @@ def evaluar_cruce(track_id, cx, cy, numero, timestamp):
             'timestamp': timestamp,
         })
         return direccion
+
+
+def olvidar(track_id, ahora):
+    """Borra un camión que ya no se ve y los bloqueos (debounce) ya vencidos."""
+    with _tracks_lock:
+        _estado_tracks.pop(str(track_id), None)
+        for k in [k for k, t in _debounce_nums.items() if ahora - t > DEBOUNCE_SEG]:
+            del _debounce_nums[k]
 
 
 def reasociar_numero(numero, track_id):

@@ -1,6 +1,6 @@
 -- ============================================================
 -- CISA — Esquema SQLite (versión 1, normalizado)
--- Archivo: schema.sql (raíz del proyecto). ÚNICO esquema del sistema.
+-- Archivo: metricas/schema.sql. ÚNICO esquema del sistema.
 -- Lo aplica storage.inicializar() en cada arranque; si encuentra una
 -- base del formato anterior, primero la migra (ver storage.py).
 --
