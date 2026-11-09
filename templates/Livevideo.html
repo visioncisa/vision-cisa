@@ -49,11 +49,83 @@
 
         <div id="det-panel">
             <div id="det-header">
-            <span class="panel-title">Detecciones</span>
-            <span id="panel-count">0</span>
+                <span class="panel-title">Detecciones</span>
+                <span id="panel-count">0</span>
             </div>
+
+            <div id="det-tools">
+                <div class="det-search">
+                    <svg class="det-search-ico" width="14" height="14" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.2"
+                         stroke-linecap="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+                    </svg>
+                    <input id="det-q" type="search" autocomplete="off"
+                           placeholder="Buscar número o empresa…"
+                           aria-label="Buscar por número económico o empresa">
+                    <button id="det-q-clear" class="det-x" type="button"
+                            title="Limpiar búsqueda" aria-label="Limpiar búsqueda" hidden>×</button>
+                </div>
+
+                <div class="det-filter-row">
+                    <select id="det-empresa" aria-label="Filtrar por empresa">
+                        <option value="">Todas las empresas</option>
+                    </select>
+
+                    <div class="det-date-wrap">
+                        <button id="det-date-btn" class="det-filter-btn" type="button"
+                                aria-haspopup="dialog" aria-expanded="false">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                 aria-hidden="true">
+                                <rect x="3" y="5" width="18" height="16" rx="2"/>
+                                <path d="M16 3v4M8 3v4M3 10h18"/>
+                            </svg>
+                            <span id="det-date-label">Fechas</span>
+                        </button>
+
+                        <div id="det-date-pop" class="det-pop" role="dialog"
+                             aria-label="Filtrar detecciones por fechas" hidden>
+                            <div class="det-pop-title">Filtrar por fechas</div>
+                            <label class="det-date-field">
+                                <span>Desde</span>
+                                <input id="det-desde" type="date">
+                            </label>
+                            <label class="det-date-field">
+                                <span>Hasta</span>
+                                <input id="det-hasta" type="date">
+                            </label>
+                            <div class="det-presets">
+                                <button type="button" data-preset="hoy">Hoy</button>
+                                <button type="button" data-preset="ayer">Ayer</button>
+                                <button type="button" data-preset="7d">7 días</button>
+                            </div>
+                            <div class="det-pop-hint" id="det-date-hint">
+                                Se filtra por día operativo.
+                            </div>
+                            <div class="det-pop-actions">
+                                <button type="button" id="det-date-clear" class="det-link">Limpiar</button>
+                                <button type="button" id="det-date-apply" class="det-primary">Aplicar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="det-filters-clear" class="det-clear-filters" type="button"
+                            title="Quitar todos los filtros" hidden>Limpiar</button>
+                </div>
+            </div>
+
             <div id="tiles">
-            <div id="empty"><div class="empty-icon">🚌</div>Esperando detecciones…</div>
+                <div id="empty">
+                    <div class="empty-icon">🚌</div>
+                    <span id="empty-txt">Esperando detecciones…</span>
+                </div>
+            </div>
+
+            <div id="det-footer">
+                <span id="det-shown"></span>
+                <span id="det-loading" class="det-loading" hidden><i></i> Cargando…</span>
+                <span id="det-end" class="det-end" hidden>No hay más detecciones</span>
             </div>
         </div>
         </div>
@@ -65,6 +137,8 @@
             <img id="modal-img" src="" alt="">
             <div id="modal-body">
             <div id="modal-num">—</div>
+            <div class="mrow"><span class="mlabel">Empresa</span><span class="mval" id="m-emp">—</span></div>
+            <div class="mrow"><span class="mlabel">Movimiento</span><span class="mval" id="m-dir">—</span></div>
             <div class="mrow"><span class="mlabel">OCR leyó</span><span class="mval" id="m-leido">—</span></div>
             <div class="mrow"><span class="mlabel">Estado</span><span class="mval" id="m-estado">—</span></div>
             <div class="mrow"><span class="mlabel">Confianza YOLO</span><span class="mval" id="m-conf">—</span></div>
