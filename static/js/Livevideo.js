@@ -193,7 +193,8 @@ setInterval(pollDetecciones,3000);pollDetecciones();
       '<button class="vp-btn" data-s="10">+10 s</button>' +
       '<span class="vp-tiempo">0:00 / 0:00</span>' +
       '<span class="vp-nombre"></span>' +
-      '<button class="vp-btn" data-sig="1">Siguiente \u203a</button>' +
+      '<button class="vp-btn" data-sig="-1" title="Video más reciente">\u2039 Anterior</button>' +
+      '<button class="vp-btn" data-sig="1" title="Video más viejo">Siguiente \u203a</button>' +
     '</div>';
   var barra = caja.querySelector('.vp-barra');
   var tiempo = caja.querySelector('.vp-tiempo');
@@ -245,7 +246,7 @@ setInterval(pollDetecciones,3000);pollDetecciones();
     if (b.getAttribute('data-sig')) {
       base = {pos: 0, t: Date.now()};
       ignorarHasta = Date.now() + 800;
-      mandar('/api/prueba/siguiente');
+      mandar(b.getAttribute('data-sig') === '-1' ? '/api/prueba/anterior' : '/api/prueba/siguiente');
     } else {
       ir(posActual() + Number(b.getAttribute('data-s')));
     }
@@ -279,7 +280,8 @@ setInterval(pollDetecciones,3000);pollDetecciones();
       ubicar();
       dur = d.dur;
       barra.max = Math.max(1, d.dur);
-      nombre.textContent = d.video;
+      nombre.textContent = d.video + (d.videos > 1 ? '  \u00b7  ' + d.indice + ' de ' + d.videos : '');
+      nombre.title = 'El 1 es el video más reciente';
       if (!arrastrando && Date.now() > ignorarHasta) base = {pos: d.pos, t: Date.now()};
     }).catch(function () {});
   }

@@ -267,11 +267,16 @@ class HiloM2M3:
 
         # ── Registro en métricas ──
         if resultado == NO_CONFIRMADO:
-            # Número ilegible o sin match: NO se registra en métricas
-            # (evita abrir estancias falsas). El frame queda en FRAMES_DIR
-            # y la alerta ⚠️ ya se publicó en el grupo para auditoría.
-            print(f"[METRICAS] '{numero}' NO registrado (SIN CONFIRMAR)")
-            return
+            if numero in UNIDADES_VALIDAS:
+                # Número del padrón que la IA no pudo confirmar: NO se registra
+                # (evita abrir estancias falsas). El frame queda en FRAMES_DIR
+                # y la alerta ⚠️ ya se publicó en el grupo para auditoría.
+                print(f"[METRICAS] '{numero}' NO registrado (SIN CONFIRMAR)")
+                return
+            # Fuera del padrón (p. ej. 2513): la IA solo compara contra el padrón, así
+            # que nunca lo confirma. Pasa y se registra con el número detectado.
+            numero_final = numero
+            print(f"[METRICAS] '{numero}' fuera del padrón: se registra con el número detectado")
 
         # APROBADO: registra el número final (posiblemente corregido por LLM)
         # FALLBACK: registra como hoy; el validador humano decidirá en Telegram
@@ -288,14 +293,15 @@ class HiloM2M3:
         return len(corto) < len(largo) and all(c in it for c in corto)
 
     def _fuera_padron(self, tid):
-        """(numero, veces) si lo que MÁS lee M3 en este camión es un número de 4
-        dígitos que no está en el padrón, leído al menos VOTOS_FUERA_PADRON veces
-        (p. ej. 2508). Si no, None."""
-        conteo = self.crudas.get(tid)
-        if not conteo:
+        """(numero, veces) si la lectura de 4 dígitos que MÁS se repite en este camión
+        no está en el padrón y se leyó al menos VOTOS_FUERA_PADRON veces (p. ej. 2513).
+        Las lecturas cortas no cuentan en contra: 253 es el mismo 2513 al que se le
+        fue el 1. Si no, None."""
+        largos = Counter({n: v for n, v in self.crudas.get(tid, {}).items() if len(n) == 4})
+        if not largos:
             return None
-        numero, veces = conteo.most_common(1)[0]
-        if veces >= VOTOS_FUERA_PADRON and len(numero) == 4 and numero not in UNIDADES_VALIDAS:
+        numero, veces = largos.most_common(1)[0]
+        if veces >= VOTOS_FUERA_PADRON and numero not in UNIDADES_VALIDAS:
             return numero, veces
         return None
 
@@ -342,6 +348,12 @@ class HiloM2M3:
             self.votos_por_track.pop(tid, None)
             self.reportados[tid] = ahora
             if not numero:
+                # Cruzó y se juntaron lecturas, pero ninguna alcanzó para un número
+                print(f"[PERDIDO] track={tid} {p['direccion'].upper()} sin registrar: "
+                      f"lecturas={votos or 'ninguna'} leído tal cual={crudas or 'nada'} "
+                      f"(hacen falta {N_VOTOS} iguales del padrón o {VOTOS_FUERA_PADRON} fuera de él)")
+                with estado.state_lock:
+                    estado.STATE["descartadas"] += 1
                 continue
             # Si el camión terminó del lado de donde venía, se regresó: no cuenta
             lado_entrada = linea_virtual.LADO_ENTRADA
