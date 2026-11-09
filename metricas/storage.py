@@ -254,13 +254,16 @@ def _fila_a_ev(row) -> dict:
     except Exception:
         ts = datetime.now().timestamp()
     return {
-        "ts":        ts,
-        "numero":    row["no_economico"],
-        "empresa":   row["empresa"],
-        "zona":      ZONAS.get(row["zona"], "Lateral"),
-        "conf":      float(row["confianza"]),
-        "frame":     row["ruta_captura"],
-        "direccion": row["direccion"],
+        "id":         row["id_evento"],
+        "hora_paso":  row["hora_paso"],
+        "ts":         ts,
+        "numero":     row["no_economico"],
+        "empresa":    row["empresa"],
+        "zona":       ZONAS.get(row["zona"], "Lateral"),
+        "conf":       float(row["confianza"]),
+        "frame":      row["ruta_captura"],
+        "direccion":  row["direccion"],
+        "en_padron":  bool(row["en_padron"]),
     }
 
 
@@ -345,6 +348,68 @@ def leer_eventos(limite: int = 5000) -> list[dict]:
     rows = _conn().execute(
         "SELECT * FROM v_evento ORDER BY hora_paso DESC LIMIT ?", (limite,)).fetchall()
     return [_fila_a_ev(r) for r in reversed(rows)]
+
+
+def buscar_eventos(q: str = None, empresa: str = None,
+                   desde: str = None, hasta: str = None,
+                   cursor_hora: str = None, cursor_id: int = None,
+                   limite: int = 10) -> tuple[list[dict], int]:
+    """
+    Eventos filtrados y paginados para el panel de detecciones.
+
+    - q: busca por número económico y empresa (varias palabras = todas deben aparecer).
+    - empresa: filtra por empresa exacta (sin distinguir mayúsculas).
+    - desde/hasta: rango de días operativos en ISO (YYYY-MM-DD), inclusivo.
+    - cursor_hora/cursor_id: paginación por llaves (no se salta filas si entran
+      detecciones nuevas mientras se hace scroll).
+    - Devuelve (eventos, total) donde `total` es el total del filtro, sin cursor.
+    """
+    where, params = [], []
+
+    for token in (q or "").split():
+        where.append(
+            "(instr(lower(no_economico), lower(?)) > 0 OR "
+            " instr(lower(empresa), lower(?)) > 0)")
+        params += [token, token]
+
+    if empresa:
+        where.append("lower(empresa) = lower(?)")
+        params.append(empresa)
+
+    if desde:
+        where.append("DATE(hora_paso, ?) >= ?")
+        params += [_OFFSET, desde]
+
+    if hasta:
+        where.append("DATE(hora_paso, ?) <= ?")
+        params += [_OFFSET, hasta]
+
+    c = _conn()
+    where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+    total = c.execute(
+        "SELECT COUNT(*) FROM v_evento" + where_sql, tuple(params)).fetchone()[0]
+
+    where_datos, params_datos = list(where), list(params)
+    if cursor_hora and cursor_id is not None:
+        where_datos.append("(hora_paso < ? OR (hora_paso = ? AND id_evento < ?))")
+        params_datos += [cursor_hora, cursor_hora, int(cursor_id)]
+
+    where_datos_sql = (" WHERE " + " AND ".join(where_datos)) if where_datos else ""
+    rows = c.execute(
+        "SELECT * FROM v_evento" + where_datos_sql +
+        " ORDER BY hora_paso DESC, id_evento DESC LIMIT ?",
+        tuple(params_datos) + (max(1, int(limite)),)).fetchall()
+
+    return [_fila_a_ev(r) for r in rows], total
+
+
+def empresas_eventos() -> list[str]:
+    """Empresas que aparecen en las detecciones, para el filtro del panel."""
+    rows = _conn().execute(
+        "SELECT DISTINCT empresa FROM v_evento "
+        "WHERE empresa IS NOT NULL AND empresa <> '' "
+        "ORDER BY empresa COLLATE NOCASE").fetchall()
+    return [r["empresa"] for r in rows]
 
 
 def eventos_de_hoy() -> list[dict]:

@@ -229,3 +229,41 @@ def detecciones_recientes(n=30):
             "frame_url": ("/frames/" + ev["frame"]) if ev.get("frame") else None,
         })
     return out
+
+
+def listar_detecciones(q=None, empresa=None, desde=None, hasta=None,
+                       cursor_hora=None, cursor_id=None, limite=10):
+    """
+    Panel de detecciones con búsqueda, filtros y paginación por cursor.
+    Devuelve además el cursor de la siguiente página y el total del filtro.
+    """
+    filas, total = storage.buscar_eventos(
+        q=q, empresa=empresa, desde=desde, hasta=hasta,
+        cursor_hora=cursor_hora, cursor_id=cursor_id, limite=limite + 1,
+    )
+    hay_mas = len(filas) > limite
+    filas = filas[:limite]
+
+    items = []
+    for ev in filas:
+        items.append({
+            "id":         ev["id"],
+            "numero":     ev["numero"],
+            "empresa":    ev["empresa"],
+            "direccion":  ev["direccion"],
+            "estado":     "VERIFICADO",
+            "conf":       ev["conf"],
+            "ts":         _dt.datetime.fromtimestamp(ev["ts"]).strftime("%Y-%m-%d %H:%M:%S"),
+            "zona":       ev["zona"],
+            "cls":        "numero_" + ev["zona"].lower(),
+            "en_padron":  ev["en_padron"],
+            "thumb_url":  ("/thumb/" + ev["frame"]) if ev.get("frame") else None,
+            "frame_url":  ("/frames/" + ev["frame"]) if ev.get("frame") else None,
+        })
+
+    next_cursor = None
+    if hay_mas and filas:
+        ultimo = filas[-1]
+        next_cursor = {"hora": ultimo["hora_paso"], "id": ultimo["id"]}
+
+    return {"items": items, "total": total, "next_cursor": next_cursor}

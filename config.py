@@ -126,7 +126,7 @@ FLASK_PORT        = int(os.getenv("FLASK_PORT"))
 MJPEG_FPS         = float(os.getenv("MJPEG_FPS", "10"))    # video en vivo: cuadros por segundo
 MJPEG_ANCHO       = int(os.getenv("MJPEG_ANCHO", "960"))   # video en vivo: ancho en px
 MJPEG_CALIDAD     = 70                                     # calidad JPEG (0-100)
-LISTA_DETECCIONES = int(os.getenv("LISTA_DETECCIONES", "10"))  # detecciones en la lista en vivo
+LISTA_DETECCIONES = int(os.getenv("LISTA_DETECCIONES", "10"))  # detecciones por página en la lista en vivo
 THUMB_ANCHO       = 320                                    # ancho de las miniaturas de la lista
 
 # ── Validaciones ──────────────────────────────────────────────────────────────
