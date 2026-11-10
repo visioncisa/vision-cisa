@@ -124,8 +124,22 @@
 
             <div id="det-footer">
                 <span id="det-shown"></span>
-                <span id="det-loading" class="det-loading" hidden><i></i> Cargando…</span>
-                <span id="det-end" class="det-end" hidden>No hay más detecciones</span>
+                <div id="det-pager">
+                    <button id="det-refresh" class="det-page-btn" type="button"
+                            title="Actualizar detecciones" aria-label="Actualizar detecciones">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                             stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+                            <path d="M21 3v6h-6"/>
+                        </svg>
+                    </button>
+                    <button id="det-prev" class="det-page-btn" type="button"
+                            title="Página anterior" aria-label="Página anterior">‹</button>
+                    <span id="det-page-info">1 / 1</span>
+                    <button id="det-next" class="det-page-btn" type="button"
+                            title="Página siguiente" aria-label="Página siguiente">›</button>
+                </div>
             </div>
         </div>
         </div>

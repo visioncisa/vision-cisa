@@ -119,14 +119,17 @@ fetch('/api/estado').then(function(r){return r.json();}).then(function(d){
 }
 setInterval(pollEstado,1000);pollEstado();
 
-/* ── Detecciones: búsqueda, filtros y scroll infinito ── */
+/* ── Detecciones: búsqueda, filtros y paginación fija de 10 ── */
 var detTilesEl   = document.getElementById('tiles');
 var detEmptyEl   = document.getElementById('empty');
 var detEmptyTxt  = document.getElementById('empty-txt');
 var detCountEl   = document.getElementById('panel-count');
 var detShownEl   = document.getElementById('det-shown');
-var detLoadingEl = document.getElementById('det-loading');
-var detEndEl     = document.getElementById('det-end');
+var detPagerEl   = document.getElementById('det-pager');
+var detPageInfoEl= document.getElementById('det-page-info');
+var detPrevEl    = document.getElementById('det-prev');
+var detNextEl    = document.getElementById('det-next');
+var detRefreshEl = document.getElementById('det-refresh');
 var detQEl       = document.getElementById('det-q');
 var detQClearEl  = document.getElementById('det-q-clear');
 var detEmpresaEl = document.getElementById('det-empresa');
@@ -184,8 +187,9 @@ function makeTile(data){
 }
 
 var detState={
-    pageSize:null, cursor:null, total:0, loaded:0, hasMore:true, loading:false,
-    q:'', empresa:'', desde:'', hasta:'', seq:0, seen:{}, autoFills:0, horaCorte:3
+    pageSize:10, page:1, totalPages:1, cursors:{1:null},
+    total:0, loading:false,
+    q:'', empresa:'', desde:'', hasta:'', seq:0, horaCorte:3
 };
 
 function hayFiltros(){return !!(detState.q||detState.empresa||detState.desde||detState.hasta);}
@@ -224,8 +228,6 @@ function textoFecha(){
 function clearDetTiles(){
     var tiles=detTilesEl.querySelectorAll('.tile');
     for(var i=0;i<tiles.length;i++)tiles[i].remove();
-    detState.seen={};
-    detState.loaded=0;
 }
 function showDetEmpty(msg){
     detEmptyTxt.textContent=msg;
@@ -233,16 +235,30 @@ function showDetEmpty(msg){
 }
 function updateDetUI(){
     detCountEl.textContent=fmtNum(detState.total);
-    detShownEl.textContent=detState.total?('Mostrando '+detState.loaded+' de '+detState.total):'';
-    detLoadingEl.hidden=!detState.loading;
-    detEndEl.hidden=!(detState.total>0&&!detState.hasMore&&detState.loaded>=detState.total);
     detFiltersClearEl.hidden=!hayFiltros();
     detDateBtn.classList.toggle('active',!!(detState.desde||detState.hasta));
     detDateLabel.textContent=textoFecha();
+
+    detPagerEl.hidden=detState.total===0;
+    detPrevEl.disabled=detState.loading||detState.page<=1;
+    detNextEl.disabled=detState.loading||detState.page>=detState.totalPages||
+        !(detState.page+1 in detState.cursors);
+    detRefreshEl.disabled=detState.loading;
+    detPageInfoEl.textContent=detState.page+' / '+Math.max(1,detState.totalPages);
+
+    if(detState.loading){
+        detShownEl.textContent='Cargando…';
+    }else if(detState.total>0){
+        var inicio=(detState.page-1)*detState.pageSize+1;
+        var fin=Math.min(detState.page*detState.pageSize,detState.total);
+        detShownEl.textContent='Mostrando '+inicio+'–'+fin+' de '+fmtNum(detState.total);
+    }else{
+        detShownEl.textContent='';
+    }
 }
 function detUrl(cursor){
     var p=new URLSearchParams();
-    if(detState.pageSize)p.set('limit',String(detState.pageSize));
+    p.set('limit',String(detState.pageSize));
     if(detState.q)p.set('q',detState.q);
     if(detState.empresa)p.set('empresa',detState.empresa);
     if(detState.desde)p.set('desde',detState.desde);
@@ -250,62 +266,49 @@ function detUrl(cursor){
     if(cursor){p.set('cursor_hora',cursor.hora);p.set('cursor_id',String(cursor.id));}
     return '/api/detecciones?'+p.toString();
 }
-function ensureFill(){
-    if(!detState.hasMore||detState.loading||detState.autoFills>=2)return;
-    if(detTilesEl.scrollHeight<=detTilesEl.clientHeight+20){
-        detState.autoFills++;
-        loadDetecciones(false);
-    }
-}
-function loadDetecciones(reset){
-    if(!reset&&(detState.loading||!detState.hasMore))return;
+function cargarPagina(pagina){
+    if(detState.loading)return;
+    if(!(pagina in detState.cursors))return;
     var seq=++detState.seq;
+    var cursor=detState.cursors[pagina];
     detState.loading=true;
-    if(reset){
-        detState.cursor=null;
-        detState.hasMore=true;
-        detState.total=0;
-        detState.autoFills=0;
-        clearDetTiles();
-        detEmptyEl.hidden=true;
-    }
     updateDetUI();
-    var cursor=reset?null:detState.cursor;
     fetch(detUrl(cursor))
         .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
         .then(function(data){
             if(seq!==detState.seq)return;
             if(data.error)throw new Error(data.error);
-            if(typeof data.limit==='number'&&data.limit>0)detState.pageSize=data.limit;
             if(typeof data.hora_corte==='number'){
                 detState.horaCorte=data.hora_corte;
                 detDateHint.textContent='Se filtra por día operativo (corte '+
                     String(data.hora_corte).padStart(2,'0')+':00).';
             }
             detState.total=data.total||0;
-            var items=data.items||[];
-            for(var i=0;i<items.length;i++){
-                var it=items[i];
-                var key=it.id!=null?('id:'+it.id):('k:'+it.ts+':'+it.numero);
-                if(detState.seen[key])continue;
-                detState.seen[key]=true;
-                detTilesEl.appendChild(makeTile(it));
-                detState.loaded++;
+            detState.page=pagina;
+            detState.totalPages=Math.max(1,Math.ceil(detState.total/detState.pageSize));
+
+            for(var k in detState.cursors){
+                if(Number(k)>pagina)delete detState.cursors[k];
             }
-            detState.cursor=data.next_cursor||null;
-            detState.hasMore=!!data.next_cursor;
+            if(data.next_cursor)detState.cursors[pagina+1]=data.next_cursor;
+            else delete detState.cursors[pagina+1];
+
+            clearDetTiles();
+            var items=data.items||[];
+            for(var i=0;i<items.length;i++)detTilesEl.appendChild(makeTile(items[i]));
+            detEmptyEl.hidden=items.length>0;
+            if(items.length===0){
+                showDetEmpty(hayFiltros()?'No hay detecciones con esos filtros.':'Esperando detecciones…');
+            }
+            detTilesEl.scrollTop=0;
             detState.loading=false;
-            if(detState.loaded===0)showDetEmpty(hayFiltros()?'No hay detecciones con esos filtros.':'Esperando detecciones…');
-            else detEmptyEl.hidden=true;
             updateDetUI();
-            ensureFill();
         })
         .catch(function(){
             if(seq!==detState.seq)return;
             detState.loading=false;
-            if(reset){
-                detState.total=0;
-                detState.hasMore=false;
+            if(detState.total===0){
+                detState.totalPages=1;
                 showDetEmpty('No se pudieron cargar las detecciones.');
             }
             updateDetUI();
@@ -313,8 +316,15 @@ function loadDetecciones(reset){
 }
 
 function resetAndLoad(){
+    detState.loading=false;
+    detState.page=1;
+    detState.total=0;
+    detState.totalPages=1;
+    detState.cursors={1:null};
     detTilesEl.scrollTop=0;
-    loadDetecciones(true);
+    clearDetTiles();
+    detEmptyEl.hidden=true;
+    cargarPagina(1);
 }
 
 /* Búsqueda por número económico o empresa */
@@ -426,53 +436,20 @@ detFiltersClearEl.addEventListener('click',function(){
     resetAndLoad();
 });
 
-/* Scroll infinito */
-detTilesEl.addEventListener('scroll',function(){
-    if(detTilesEl.scrollTop+detTilesEl.clientHeight>=detTilesEl.scrollHeight-120){
-        loadDetecciones(false);
-    }
-});
-
-/* Si no hay filtros y el usuario está arriba, se agregan las nuevas sin recargar */
-function refrescarNuevas(){
-    if(document.hidden||hayFiltros()||detState.loading||detTilesEl.scrollTop>8)return;
-    var seq=detState.seq;
-    var p=new URLSearchParams();
-    if(detState.pageSize)p.set('limit',String(detState.pageSize));
-    fetch('/api/detecciones?'+p.toString())
-        .then(function(r){return r.ok?r.json():null;})
-        .then(function(data){
-            if(!data||seq!==detState.seq)return;
-            if(typeof data.total==='number')detState.total=data.total;
-            if(typeof data.hora_corte==='number'){
-                detState.horaCorte=data.hora_corte;
-                detDateHint.textContent='Se filtra por día operativo (corte '+
-                    String(data.hora_corte).padStart(2,'0')+':00).';
-            }
-            var nuevos=[];
-            var items=data.items||[];
-            for(var i=0;i<items.length;i++){
-                var it=items[i];
-                var key=it.id!=null?('id:'+it.id):('k:'+it.ts+':'+it.numero);
-                if(detState.seen[key])continue;
-                detState.seen[key]=true;
-                nuevos.push(it);
-            }
-            if(nuevos.length){
-                for(var j=nuevos.length-1;j>=0;j--){
-                    detTilesEl.insertBefore(makeTile(nuevos[j]),detTilesEl.firstChild);
-                    detState.loaded++;
-                }
-                detEmptyEl.hidden=true;
-            }
-            updateDetUI();
-        }).catch(function(){});
+/* Paginación fija de 10 */
+function irPagina(delta){
+    if(detState.loading)return;
+    var destino=detState.page+delta;
+    if(destino<1||destino>detState.totalPages)return;
+    if(!(destino in detState.cursors))return;
+    cargarPagina(destino);
 }
+detPrevEl.addEventListener('click',function(){irPagina(-1);});
+detNextEl.addEventListener('click',function(){irPagina(1);});
+detRefreshEl.addEventListener('click',resetAndLoad);
 
 cargarEmpresas();
-updateDetUI();
-loadDetecciones(true);
-setInterval(refrescarNuevas,5000);
+resetAndLoad();
 
 /* ── Modo prueba: controles tipo YouTube sobre el video (solo con video grabado) ── */
 (function () {
