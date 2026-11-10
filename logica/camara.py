@@ -5,8 +5,9 @@ Lectura de la cámara en su propio hilo.
   - Cámara RTSP: GStreamer con decodificación por hardware (NVDEC);
     si no abre, plan B con FFmpeg (CPU). CAM_BACKEND=ffmpeg lo fuerza.
   - Video grabado (RTSP_URL = ruta a un .mp4): modo prueba. Si hay varios
-    (VIDEOS_PRUEBA) se reproducen uno tras otro y se puede adelantar o
-    pasar al siguiente. Con la cámara real nada de esto aplica.
+    (VIDEOS_PRUEBA) se reproducen del MÁS RECIENTE al más viejo; se puede
+    adelantar, retroceder, ir al siguiente (más viejo) o al anterior (más
+    reciente). Con la cámara real nada de esto aplica.
 Si pierdes conexión con la cámara o quieres meter una segunda,
 este es el archivo que tocas.
 
@@ -23,19 +24,21 @@ from logica import estado
 
 
 def _lista_videos(url):
-    """Videos del modo prueba. Vacía si la fuente es la cámara."""
+    """Videos del modo prueba, del más reciente al más viejo. Vacía si la fuente es
+    la cámara. Las grabaciones llevan la fecha en el nombre (cam1_20261104_150000.mp4),
+    así que el orden por nombre es el orden por fecha."""
     if not os.path.isfile(str(url)):
         return []
     lista = []
     for parte in VIDEOS_PRUEBA:
         if os.path.isdir(parte):
-            lista += sorted(os.path.join(parte, f) for f in os.listdir(parte)
-                            if f.lower().endswith(".mp4"))
+            lista += [os.path.join(parte, f) for f in os.listdir(parte)
+                      if f.lower().endswith(".mp4")]
         elif os.path.isfile(parte):
             lista.append(parte)
     if url not in lista:
-        lista.insert(0, url)
-    return lista
+        lista.append(url)
+    return sorted(set(lista), key=lambda r: os.path.basename(r), reverse=True)
 
 
 class CameraStream:
@@ -46,7 +49,9 @@ class CameraStream:
         self.lock    = threading.Lock()
         self.frame   = None
         self.lista   = _lista_videos(url)   # videos del modo prueba (vacía con cámara)
-        self.cmd     = None                 # orden pendiente: ("saltar", seg), ("ir", seg) o ("siguiente", 0)
+        if self.lista:
+            self.url = self.lista[0]        # empieza por el más reciente
+        self.cmd     = None                 # orden pendiente: ("saltar", seg), ("ir", seg), ("siguiente", 0) o ("anterior", 0)
         self.pos_seg = 0.0                  # segundo actual del video (modo prueba)
         self.dur_seg = 0.0                  # duración del video (modo prueba)
 
@@ -99,7 +104,13 @@ class CameraStream:
         return True
 
     def _vecino(self, paso):
+        """paso=+1: el siguiente (más viejo); al llegar al más viejo vuelve al más
+        reciente. paso=-1: el anterior (más reciente); en el más reciente se queda en él.
+        La lista se vuelve a leer para que aparezcan las grabaciones nuevas."""
+        self.lista = _lista_videos(self.url) or [self.url]
         i = self.lista.index(self.url) if self.url in self.lista else 0
+        if paso < 0:
+            return self.lista[max(0, i + paso)]
         return self.lista[(i + paso) % len(self.lista)]
 
     def _abrir_video(self, ruta):
@@ -129,11 +140,13 @@ class CameraStream:
             if total:
                 pos = min(pos, total - 2)
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
-        elif nombre == "siguiente":
-            if len(self.lista) > 1:
-                self._abrir_video(self._vecino(1))
-            else:
+        elif nombre in ("siguiente", "anterior"):
+            destino = self._vecino(1 if nombre == "siguiente" else -1)
+            if destino != self.url:
+                self._abrir_video(destino)
+            else:                               # no hay otro: vuelve al inicio del mismo
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            print(f"[CAM1] Prueba: {nombre} → {os.path.basename(self.url)}")
 
     def update(self):
         self._conectar()

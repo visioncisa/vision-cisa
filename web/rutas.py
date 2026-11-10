@@ -397,6 +397,7 @@ def api_prueba_estado():
         "prueba": activo,
         "video":  os.path.basename(cam.url) if activo else None,
         "videos": len(cam.lista) if activo else 0,
+        "indice": (cam.lista.index(cam.url) + 1) if activo and cam.url in cam.lista else 0,   # 1 = el más reciente
         "pos":    round(cam.pos_seg, 1) if activo else 0,
         "dur":    round(cam.dur_seg, 1) if activo else 0,
     })
@@ -417,6 +418,13 @@ def api_prueba_saltar():
 @app.route('/api/prueba/siguiente', methods=['POST'])
 def api_prueba_siguiente():
     if not (estado.cam and estado.cam.pedir("siguiente")):
+        return jsonify({"ok": False, "error": "Solo disponible con video grabado (modo prueba)"})
+    return jsonify({"ok": True})
+
+
+@app.route('/api/prueba/anterior', methods=['POST'])
+def api_prueba_anterior():
+    if not (estado.cam and estado.cam.pedir("anterior")):
         return jsonify({"ok": False, "error": "Solo disponible con video grabado (modo prueba)"})
     return jsonify({"ok": True})
 
