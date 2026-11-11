@@ -32,7 +32,8 @@ archivo por hora, y se guardan las últimas 72 horas.
    `SIN_TELEGRAM=1`.
 7. **Registro** (`metricas/`): base SQLite con unidades, pasos y estancias.
    El padrón sale solo de `padron.csv`.
-8. **Web** (`web/`): tablero, video en vivo (MJPEG), lista de detecciones y
+8. **Web** (`web/`): tablero, video en vivo (MJPEG), lista de detecciones con
+   búsqueda por número/empresa, filtro por fechas y paginación fija de 10, y
    tabla de unidades ordenada y paginada.
 9. **Grabación** (`scripts/grabar.sh`, servicio `cisa-grabacion`): copia el
    video tal cual llega de la cámara (Full HD, H.265), sin recodificar.
