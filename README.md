@@ -123,6 +123,8 @@ Todas las variables están en `.env.example`, con su explicación. Las más usad
 | `LINEA_P1`, `LINEA_P2`, `LADO_ENTRADA` | Línea virtual y lado de adentro del patio |
 | `MARGEN_LINEA_PX` | Margen alrededor de la línea (px) donde el camión no cambia de lado |
 | `VOTOS_FUERA_PADRON` | Lecturas iguales para registrar un número que no está en el padrón (4) |
+| `FOTOS_POR_AVISO` | Fotos que se guardan y se mandan por aviso: las mejores, de momentos distintos (3) |
+| `FOTOS_SEPARACION_SEG` | Segundos mínimos entre una foto y otra del mismo aviso (1.0) |
 | `WHATSAPP_NUMERO` | Número que recibe por WhatsApp los avisos del grupo (vacío = apagado) |
 | `GRABACIONES_DIR` | Dónde se guardan las grabaciones (`<dir>/cam1_grabacion`) |
 | `DB_PATH` | Base de datos (`datos/detecciones.db` en Docker) |

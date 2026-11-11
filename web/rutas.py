@@ -17,6 +17,7 @@ from flask import jsonify, send_from_directory, make_response, render_template, 
 from config import (
     RTSP_URL, RTSP_URL_CAM2, UNIDADES_VALIDAS, FRAMES_DIR, CROPS_DIR, GRABACIONES_DIR,
     MJPEG_FPS, MJPEG_ANCHO, MJPEG_CALIDAD, LISTA_DETECCIONES, THUMB_ANCHO,
+    HORA_CORTE_DIA,
 )
 from web.servidor import app
 from logica import estado
@@ -73,6 +74,80 @@ def api_dashboard():
 @app.route('/api/detecciones-recent')
 def api_detecciones_recent():
     return jsonify({"pending": [], "approved": metricas.detecciones_recientes(LISTA_DETECCIONES)})
+
+
+def _fecha_detecciones(nombre):
+    """Parámetro YYYY-MM-DD del panel; None si viene vacío, ValueError si es inválido."""
+    valor = (request.args.get(nombre) or "").strip()
+    if not valor:
+        return None
+    try:
+        return _dt.datetime.strptime(valor, "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        raise ValueError(f"{nombre} debe tener formato YYYY-MM-DD")
+
+
+@app.route('/api/detecciones/empresas')
+def api_detecciones_empresas():
+    """Empresas que aparecen en las detecciones, para el selector del panel."""
+    return jsonify({"empresas": storage.empresas_eventos()})
+
+
+@app.route('/api/detecciones')
+def api_detecciones():
+    """
+    Detecciones paginadas para /livevideo.
+
+    Query params:
+        q            número económico o empresa (varias palabras = AND)
+        empresa      empresa exacta
+        desde/hasta  rango de días operativos (YYYY-MM-DD, inclusivo)
+        limit        tamaño de página (default LISTA_DETECCIONES)
+        cursor_hora  cursor de paginación (hora_paso del último item)
+        cursor_id    cursor de paginación (id_evento del último item)
+    """
+    q       = (request.args.get('q') or "").strip()[:100]
+    empresa = (request.args.get('empresa') or "").strip()[:100]
+
+    try:
+        desde = _fecha_detecciones('desde')
+        hasta = _fecha_detecciones('hasta')
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if desde and hasta and desde > hasta:
+        desde, hasta = hasta, desde
+
+    try:
+        limite = int(request.args.get('limit') or LISTA_DETECCIONES)
+    except ValueError:
+        limite = LISTA_DETECCIONES
+    limite = max(1, min(100, limite))
+
+    cursor_hora = (request.args.get('cursor_hora') or "").strip() or None
+    try:
+        cursor_id = int(request.args.get('cursor_id'))
+    except (TypeError, ValueError):
+        cursor_id = None
+    if cursor_hora:
+        try:
+            _dt.datetime.strptime(cursor_hora, "%Y-%m-%dT%H:%M:%S")
+        except ValueError:
+            cursor_hora, cursor_id = None, None
+    else:
+        cursor_id = None
+    if cursor_hora and cursor_id is None:
+        cursor_hora = None
+
+    datos = metricas.listar_detecciones(
+        q=q, empresa=empresa, desde=desde, hasta=hasta,
+        cursor_hora=cursor_hora, cursor_id=cursor_id, limite=limite,
+    )
+    datos.update({
+        "limit":      limite,
+        "hora_corte": HORA_CORTE_DIA,
+        "filtros":    {"q": q, "empresa": empresa, "desde": desde, "hasta": hasta},
+    })
+    return jsonify(datos)
 
 
 # ── Snapshot (miniatura del dashboard) ────────────────────────────────────────

@@ -2,7 +2,9 @@
 avisos/whatsapp.py
 ================================================================
 Manda por WhatsApp los mismos avisos que se publican en el grupo
-de Telegram (foto + texto), al número WHATSAPP_NUMERO del .env.
+de Telegram (fotos + texto), al número WHATSAPP_NUMERO del .env.
+Si el aviso trae varias fotos, la primera lleva el texto y las
+demás van enseguida.
 
 El envío lo hace el servicio cisa-whatsapp (whatsapp/puente.js).
 Aquí solo se forman los avisos en una cola y un hilo aparte los
@@ -22,12 +24,17 @@ from config import WHATSAPP_NUMERO, WHATSAPP_URL
 _cola = queue.Queue(maxsize=50)
 
 
-def enviar(texto, foto_path=None):
-    """Deja el aviso en la cola y regresa de inmediato."""
+def enviar(texto, foto_path=None, extras=()):
+    """Deja el aviso en la cola y regresa de inmediato. extras = otras fotos del
+    mismo aviso; van después de la principal, numeradas (2/3, 3/3)."""
     if not WHATSAPP_NUMERO:
         return
+    total = 1 + len(extras)
+    envios = [(texto, foto_path)] + [(f"📷 {i}/{total}", ruta)
+                                     for i, ruta in enumerate(extras, start=2)]
     try:
-        _cola.put_nowait((texto, foto_path))
+        for envio in envios:
+            _cola.put_nowait(envio)
     except queue.Full:
         print("[WHATSAPP] cola llena (¿puente caído?); aviso descartado")
 

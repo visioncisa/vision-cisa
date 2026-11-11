@@ -40,6 +40,7 @@ import cv2
 
 from config import (
     CONF_AUTOBUS, CONF_VISTA, N_VOTOS, VOTOS_FUERA_PADRON, UNIDADES_VALIDAS,
+    FOTOS_POR_AVISO, FOTOS_SEPARACION_SEG,
     PAD_RATIO, PAD_RATIO_LATERAL, DEBOUNCE_SEG, FRAMES_DIR,
     BBOX_MIN_POR_TIPO, BBOX_MIN_AUTOBUS,
     YOLO_FPS_MAX, ESPERA_FIN_SEG, ESPERA_MAX_SEG,
@@ -129,6 +130,7 @@ class HiloM1:
 
                 track_ids = res_m1[0].boxes.id.int().cpu().tolist()
                 boxes_m1  = res_m1[0].boxes.xyxy.cpu().tolist()
+                confs_m1  = res_m1[0].boxes.conf.cpu().tolist()
                 if ahora - _last_m1_print >= _LOG_INTERVAL:
                     confs = [round(float(c), 2) for c in res_m1[0].boxes.conf.cpu().tolist()]
                     print(f"[M1] Autobús detectado — tracks={track_ids} confs={confs} "
@@ -137,7 +139,7 @@ class HiloM1:
 
                 # Todos los autobuses válidos (antes solo se mandaba el más grande)
                 buses = []
-                for (bx1, by1, bx2, by2), tid in zip(boxes_m1, track_ids):
+                for (bx1, by1, bx2, by2), tid, conf_bus in zip(boxes_m1, track_ids, confs_m1):
                     bx1, by1, bx2, by2 = map(int, (bx1, by1, bx2, by2))
                     w_bus, h_bus = bx2 - bx1, by2 - by1
                     if w_bus < BBOX_MIN_AUTOBUS or h_bus < BBOX_MIN_AUTOBUS:
@@ -148,7 +150,7 @@ class HiloM1:
                         continue
                     buses.append({"tid": tid,
                                   "cx": (bx1 + bx2) // 2, "cy": (by1 + by2) // 2,
-                                  "bbox": (bx1, by1, bx2, by2)})
+                                  "bbox": (bx1, by1, bx2, by2), "conf": float(conf_bus)})
 
                     if tid not in self._tracks_guardados:
                         reconocimiento.guardar_crop_autobus(frame, bx1, by1, bx2, by2, tid)
@@ -205,31 +207,40 @@ class HiloM2M3:
         self._ultimo_intento = {}     # última vez que M2 buscó su número
         self._perdidos       = set()  # ya avisados como [PERDIDO]
         self._ult_log_m3     = {}     # última línea [M3] impresa por camión (no repetir la misma)
+        self.fotos           = defaultdict(dict)  # fotos candidatas: {tid: {franja: (puntos, t, cuadro)}}
         # Medición de carga (se ve en el panel de desarrollo del tablero)
         self._n_ciclos       = 0
         self._n_m3           = 0
         self._t_medida       = time.time()
 
     # ── Registro ──────────────────────────────────────────────────────────────
-    def _guardar_frame(self, frame, numero):
+    def _guardar_frame(self, frame, numero, extras=()):
+        """Guarda la foto principal (la que queda en el registro) y las extra con el
+        mismo nombre + _2, _3... Telegram y WhatsApp las encuentran por ese nombre."""
         try:
             ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
             ruta   = FRAMES_DIR / f"{ts_str}_CAM1_{numero}.jpg"
             cv2.imwrite(str(ruta), frame)
-            return ruta
         except Exception as e:
             print(f"[FRAME SAVE ERROR] {e}")
             return None
+        for i, extra in enumerate(extras, start=2):
+            try:
+                cv2.imwrite(str(ruta.with_name(f"{ruta.stem}_{i}.jpg")), extra)
+            except Exception as e:
+                print(f"[FRAME SAVE ERROR] foto {i}: {e}")
+        return ruta
 
     def _enviar_alerta(self, numero, direccion, confianza, ts_str, frame,
-                       zona="lateral", crop=None):
-        """Centraliza el envío: validación LLM/Telegram primero, luego registro."""
+                       zona="lateral", crop=None, extras=()):
+        """Centraliza el envío: validación LLM/Telegram primero, luego registro.
+        extras = fotos de otros momentos del mismo camión (ver _elegir_fotos)."""
         with estado.state_lock:
             estado.STATE["numero"]             = numero
             estado.STATE["ts"]                 = ts_str
             estado.STATE["total_detecciones"] += 1
 
-        frame_path = self._guardar_frame(frame, numero)
+        frame_path = self._guardar_frame(frame, numero, extras)
 
         crop_path = None
         if crop is not None:
@@ -325,7 +336,8 @@ class HiloM2M3:
         for d in (self.votos_por_track, self.conf_por_track, self.todos_votos,
                   self.crudas, self.tipo_por_track, self.mejor, self.visto,
                   self._ultima_lectura, self._ultimo_crop,
-                  self._sin_zona, self._ancla, self._ultimo_intento, self._ult_log_m3):
+                  self._sin_zona, self._ancla, self._ultimo_intento, self._ult_log_m3,
+                  self.fotos):
             d.pop(tid, None)
         self._skip_impreso.discard(tid)
         self._perdidos.discard(tid)
@@ -345,6 +357,7 @@ class HiloM2M3:
             confianza = self.conf_por_track.pop(tid, 0.0)
             tipo      = self.tipo_por_track.pop(tid, "lateral")
             mejor     = self.mejor.pop(tid, None) or {}
+            fotos     = self._elegir_fotos(tid)
             self.votos_por_track.pop(tid, None)
             self.reportados[tid] = ahora
             if not numero:
@@ -371,14 +384,17 @@ class HiloM2M3:
             self._debounce_tg[numero] = ahora
 
             ts_str       = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            frame_enviar = mejor.get("frame")
-            if frame_enviar is None:
-                frame_enviar = p["frame"]
+            if fotos:
+                frame_enviar, extras = fotos[0], fotos[1:]
+            else:                                   # sin candidatas: la de antes
+                frame_enviar, extras = mejor.get("frame"), []
+                if frame_enviar is None:
+                    frame_enviar = p["frame"]
             fuera_txt = "" if numero in UNIDADES_VALIDAS else " | FUERA DEL PADRÓN"
             print(f"✅ {numero} | {p['direccion']} | conf={confianza:.2f} | {tipo} | "
                   f"track={tid} | votos={votos or crudas} | {ts_str}{fuera_txt}")
             self._enviar_alerta(numero, p["direccion"], confianza, ts_str, frame_enviar,
-                                tipo, crop=mejor.get("crop"))
+                                tipo, crop=mejor.get("crop"), extras=extras)
 
         # Camión que cruzó sin juntar N_VOTOS lecturas y ya se fue: no se registra,
         # pero se avisa (log + contador "descartadas" del panel de desarrollador).
@@ -578,6 +594,47 @@ class HiloM2M3:
         print(f"[ESPERA] track={track_id} | {direccion} | "
               f"votos={dict(self.todos_votos[track_id])} — esperando más lecturas")
 
+    # ── Fotos del aviso ───────────────────────────────────────────────────────
+    _FOTOS_MAX_FRANJAS = 12   # candidatas guardadas por camión (memoria acotada)
+
+    def _foto_candidata(self, bus, frame, ahora, con_zona=False, con_numero=False):
+        """Puntúa qué tan bien se ve el camión en este cuadro y lo guarda si es la
+        mejor foto de su franja de tiempo. Puntos: más grande y más seguro (M1) es
+        mejor; cortado por las orillas del cuadro es peor; si se le ve la zona del
+        número, o se leyó el número, es mejor."""
+        x1, y1, x2, y2 = bus["bbox"]
+        alto, ancho = frame.shape[:2]
+        area = (x2 - x1) * (y2 - y1) / float(ancho * alto)
+        orilla = 1.0
+        if x1 <= 8 or x2 >= ancho - 8:          # cortado a los lados: falta una parte del camión
+            orilla *= 0.5
+        if y1 <= 8 or y2 >= alto - 8:
+            orilla *= 0.85
+        extra = 1.5 if con_numero else (1.25 if con_zona else 1.0)
+        puntos = min(area, 0.6) ** 0.5 * bus.get("conf", 0.8) * orilla * extra
+
+        franjas = self.fotos[bus["tid"]]
+        franja  = int(ahora / FOTOS_SEPARACION_SEG)
+        if franja not in franjas or puntos > franjas[franja][0]:
+            franjas[franja] = (puntos, ahora, frame)   # el cuadro ya es copia propia
+            if len(franjas) > self._FOTOS_MAX_FRANJAS:
+                del franjas[min(franjas, key=lambda f: franjas[f][0])]
+
+    def _elegir_fotos(self, tid):
+        """Hasta FOTOS_POR_AVISO cuadros: los de más puntos, separados al menos
+        FOTOS_SEPARACION_SEG entre sí. El primero es el mejor (queda en el registro);
+        los demás van en orden de tiempo."""
+        candidatas = sorted(self.fotos.pop(tid, {}).values(), key=lambda c: -c[0])
+        elegidas = []
+        for c in candidatas:
+            if all(abs(c[1] - e[1]) >= FOTOS_SEPARACION_SEG for e in elegidas):
+                elegidas.append(c)
+                if len(elegidas) == FOTOS_POR_AVISO:
+                    break
+        if not elegidas:
+            return []
+        return [elegidas[0][2]] + [c[2] for c in sorted(elegidas[1:], key=lambda c: c[1])]
+
     def _necesita_lectura(self, bus, ahora):
         tid = bus["tid"]
         if tid in self.pendientes or tid in self._skip_impreso:
@@ -627,6 +684,7 @@ class HiloM2M3:
         a_leer = {b["tid"] for b in activos if self._necesita_lectura(b, ahora)}
         if not a_leer:
             for b in activos:                    # sin M2/M3: solo seguir el cruce
+                self._foto_candidata(b, frame, ahora)
                 self._procesar_bus(b, None, 0.0, "numero", frame, ts_now)
             return
 
@@ -659,6 +717,8 @@ class HiloM2M3:
                 presupuesto -= n
                 if n:
                     self._ultima_lectura[b["tid"]] = time.time()
+            self._foto_candidata(b, frame, ahora, con_zona=bool(por_bus.get(b["tid"])),
+                                 con_numero=bool(numero))
             # El cruce se evalúa para TODOS los camiones, se hayan leído o no
             self._procesar_bus(b, numero, conf, tipo, frame, ts_now)
 

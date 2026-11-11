@@ -1,14 +1,50 @@
 'use strict';
 
 /* ── Modal ── */
+/* Cada aviso puede traer varias fotos (d.fotos: la principal primero y las de otros
+   momentos del paso del camión). Se pasan con las flechas, las miniaturas o ← →. */
+var modalFotos=[],modalFoto=0;
+
+function mostrarFoto(i){
+    if(!modalFotos.length)return;
+    modalFoto=(i+modalFotos.length)%modalFotos.length;
+    document.getElementById('modal-img').src=modalFotos[modalFoto];
+    document.getElementById('modal-cuenta').textContent=(modalFoto+1)+' de '+modalFotos.length;
+    var minis=document.querySelectorAll('#modal-miniaturas img');
+    for(var k=0;k<minis.length;k++)minis[k].classList.toggle('activa',k===modalFoto);
+}
+function cambiarFoto(paso){mostrarFoto(modalFoto+paso);}
+
 function openModal(infoStr){
     try{
         var d=JSON.parse(infoStr);
         var imgEl=document.getElementById('modal-img');
-        var src=d.frame_url||d.thumb_url||d.captura_url||'';
-        imgEl.onerror=function(){var f=d.thumb_url||d.captura_url; if(f&&imgEl.src.indexOf(f)===-1)imgEl.src=f;};
-        imgEl.src=src;
+        var principal=d.frame_url||d.thumb_url||d.captura_url||'';
+        modalFotos=(d.fotos&&d.fotos.length)?d.fotos.slice():(principal?[principal]:[]);
+        modalFoto=0;
+        var varias=modalFotos.length>1;
+        document.getElementById('modal-fotos').classList.toggle('varias',varias);
+        var minisEl=document.getElementById('modal-miniaturas');
+        minisEl.classList.toggle('varias',varias);
+        minisEl.innerHTML='';
+        if(varias){
+            modalFotos.forEach(function(url,k){
+                var m=document.createElement('img');
+                m.src=url;m.alt='Foto '+(k+1);
+                m.onclick=function(){mostrarFoto(k);};
+                minisEl.appendChild(m);
+            });
+        }
+        imgEl.onerror=function(){
+            if(modalFoto!==0)return;                       // solo la principal tiene miniatura de respaldo
+            var f=d.thumb_url||d.captura_url; if(f&&imgEl.src.indexOf(f)===-1)imgEl.src=f;
+        };
+        if(modalFotos.length)mostrarFoto(0);else imgEl.src='';
         document.getElementById('modal-num').textContent=d.numero||'—';
+        var empEl=document.getElementById('m-emp');
+        var dirEl=document.getElementById('m-dir');
+        if(empEl)empEl.textContent=d.empresa||'—';
+        if(dirEl)dirEl.textContent=d.direccion==='entrada'?'↑ Entrada':(d.direccion==='salida'?'↓ Salida':'—');
         document.getElementById('m-leido').textContent=d.leido||d.no_detectado||d.numero||'—';
         document.getElementById('m-estado').textContent=d.estado||'—';
         document.getElementById('m-conf').textContent=d.conf?Math.round(d.conf*100)+'%':'—';
@@ -19,7 +55,12 @@ function openModal(infoStr){
 }
 
 function closeModal(){document.getElementById('modal').classList.remove('open');document.getElementById('modal-img').src='';}
-document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')closeModal();
+    if(!document.getElementById('modal').classList.contains('open')||modalFotos.length<2)return;
+    if(e.key==='ArrowLeft')cambiarFoto(-1);
+    if(e.key==='ArrowRight')cambiarFoto(1);
+});
 
 /* ── Video en vivo (MJPEG desde Flask, sin ffmpeg) ── */
 var video=document.getElementById('video');
@@ -115,9 +156,30 @@ fetch('/api/estado').then(function(r){return r.json();}).then(function(d){
 }
 setInterval(pollEstado,1000);pollEstado();
 
-/* ── Detecciones ── */
-var tilesEl=document.getElementById('tiles'),emptyEl=document.getElementById('empty'),countEl=document.getElementById('panel-count');
-var seen={},byMsgId={},MAX_TILES=10;
+/* ── Detecciones: búsqueda, filtros y paginación fija de 10 ── */
+var detTilesEl   = document.getElementById('tiles');
+var detEmptyEl   = document.getElementById('empty');
+var detEmptyTxt  = document.getElementById('empty-txt');
+var detCountEl   = document.getElementById('panel-count');
+var detShownEl   = document.getElementById('det-shown');
+var detPagerEl   = document.getElementById('det-pager');
+var detPageInfoEl= document.getElementById('det-page-info');
+var detPrevEl    = document.getElementById('det-prev');
+var detNextEl    = document.getElementById('det-next');
+var detRefreshEl = document.getElementById('det-refresh');
+var detQEl       = document.getElementById('det-q');
+var detQClearEl  = document.getElementById('det-q-clear');
+var detEmpresaEl = document.getElementById('det-empresa');
+var detFiltersClearEl = document.getElementById('det-filters-clear');
+var detDateBtn   = document.getElementById('det-date-btn');
+var detDateLabel = document.getElementById('det-date-label');
+var detDatePop   = document.getElementById('det-date-pop');
+var detDesdeEl   = document.getElementById('det-desde');
+var detHastaEl   = document.getElementById('det-hasta');
+var detDateApply = document.getElementById('det-date-apply');
+var detDateClear = document.getElementById('det-date-clear');
+var detDateHint  = document.getElementById('det-date-hint');
+
 var ESTADOS={
     'pendiente':{tile:'s-pendiente',badge:'b-pendiente',label:'⏳ Pendiente'},
     'VERIFICADO':{tile:'s-VERIFICADO',badge:'b-VERIFICADO',label:'✓ Verificado'},
@@ -125,42 +187,306 @@ var ESTADOS={
     'RECHAZADO':{tile:'s-RECHAZADO',badge:'b-RECHAZADO',label:'✗ Rechazado'}
 };
 
-function getE(e){return ESTADOS[e]||ESTADOS['pendiente'];}
-function fmtTime(ts){if(!ts)return'';try{return new Date(ts.replace(' ','T')).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}catch(e){return String(ts).slice(-8);}}
+function getE(e){return ESTADOS[e]||ESTADOS['VERIFICADO'];}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtNum(n){return Number(n||0).toLocaleString('es-MX');}
+function fmtTime(ts){
+    if(!ts) return '';
+    var d=new Date(String(ts).replace(' ','T'));
+    if(isNaN(d.getTime())) return String(ts).slice(-8);
+    var ahora=new Date();
+    var hora=d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    if(d.toDateString()===ahora.toDateString()) return hora;
+    var dia=d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
+    return dia+' '+hora.slice(0,5);
+}
 function makeTile(data){
     var num=data.numero||data.no_economico||data.no_detectado||'—';
+    var emp=data.empresa||'';
     var estado=data.estado||'VERIFICADO',ts=data.ts||data.hora_paso||'';
+    var dir=data.direccion==='entrada'?'entrada':(data.direccion==='salida'?'salida':'');
+    var dirTxt=dir==='entrada'?'↑ Entrada':(dir==='salida'?'↓ Salida':'');
+    var fuera=data.en_padron===false;
     var thumbUrl=data.thumb_url||data.captura_url||null,info=getE(estado);
     var div=document.createElement('div');div.className='tile '+info.tile;
+    if(data.id!=null)div.dataset.id=String(data.id);
     div.setAttribute('data-info',JSON.stringify(data));
     div.onclick=function(){openModal(this.getAttribute('data-info'));};
     var imgHtml;
     if(thumbUrl){imgHtml='<img class="tile-img" src="'+esc(thumbUrl)+'" alt="'+esc(num)+'" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'"><div class="tile-ph" style="display:none">🚌</div>';}
     else imgHtml='<div class="tile-ph">🚌</div>';
-    div.innerHTML=imgHtml+'<div class="tile-body"><div class="tile-num">'+esc(num)+'</div><div class="tile-meta"><span class="badge '+info.badge+'" data-badge>'+info.label+'</span><span class="tile-time">'+fmtTime(ts)+'</span></div></div>';
-    if(data.msg_id)byMsgId[data.msg_id]=div;
+    var empHtml=emp?'<div class="tile-emp'+(fuera?' fuera':'')+'">'+esc(emp)+(fuera?' · fuera de padrón':'')+'</div>':'';
+    var dirHtml=dirTxt?'<span class="tile-dir '+dir+'">'+dirTxt+'</span>':'';
+    div.innerHTML=imgHtml+'<div class="tile-body"><div class="tile-num">'+esc(num)+'</div>'+empHtml+
+        '<div class="tile-meta"><span class="badge '+info.badge+'" data-badge>'+info.label+'</span>'+
+        dirHtml+'<span class="tile-time">'+fmtTime(ts)+'</span></div></div>';
     return div;
 }
 
-function updateTile(tile,estado){var info=getE(estado);tile.className='tile '+info.tile;var b=tile.querySelector('[data-badge]');if(b){b.className='badge '+info.badge;b.textContent=info.label;}try{var d=JSON.parse(tile.getAttribute('data-info'));d.estado=estado;tile.setAttribute('data-info',JSON.stringify(d));}catch(e){}}
-function insertTile(tile){if(tilesEl.contains(emptyEl))tilesEl.removeChild(emptyEl);tilesEl.insertBefore(tile,tilesEl.firstChild);}
-function tileKey(item,kind){var ts=item.ts||item.hora_paso||'';var num=item.numero||item.no_economico||item.no_detectado||'';return kind+':'+ts+':'+num;}
-function pollDetecciones(){
-    fetch('/api/detecciones-recent').then(function(r){return r.json();}).then(function(data){
-        var pending=data.pending||[],approved=data.approved||[];
-        for(var i=pending.length-1;i>=0;i--){var p=pending[i],mid=p.msg_id;
-        if(mid&&byMsgId[mid]){var cur=byMsgId[mid].className,exp='tile '+getE(p.estado).tile;if(cur!==exp)updateTile(byMsgId[mid],p.estado);continue;}
-        var key=tileKey(p,'p');if(seen[key])continue;seen[key]=true;insertTile(makeTile(p));}
-        for(var j=approved.length-1;j>=0;j--){var a=approved[j],key2=tileKey(a,'a');if(seen[key2])continue;seen[key2]=true;insertTile(makeTile(a));}
-        var all=tilesEl.querySelectorAll('.tile');
-        while(all.length>MAX_TILES){var last=tilesEl.lastElementChild;if(last&&last!==emptyEl){if(last.dataset&&last.dataset.mid)delete byMsgId[last.dataset.mid];tilesEl.removeChild(last);all=tilesEl.querySelectorAll('.tile');}else break;}
-        if(seen&&Object.keys(seen).length>300){seen={};pending.concat(approved).forEach(function(x){seen[tileKey(x,'p')]=seen[tileKey(x,'a')]=true;});}
-        var n=tilesEl.querySelectorAll('.tile').length;countEl.textContent=n;
-        if(n===0&&!tilesEl.contains(emptyEl))tilesEl.appendChild(emptyEl);
-    }).catch(function(){});
+var detState={
+    pageSize:10, page:1, totalPages:1, cursors:{1:null},
+    total:0, loading:false,
+    q:'', empresa:'', desde:'', hasta:'', seq:0, horaCorte:3
+};
+
+function hayFiltros(){return !!(detState.q||detState.empresa||detState.desde||detState.hasta);}
+
+function isoLocal(d){
+    var m=String(d.getMonth()+1).padStart(2,'0'),dia=String(d.getDate()).padStart(2,'0');
+    return d.getFullYear()+'-'+m+'-'+dia;
 }
-setInterval(pollDetecciones,3000);pollDetecciones();
+function fechaOperativa(d){
+    var x=new Date(d.getTime());
+    x.setHours(x.getHours()-detState.horaCorte);
+    return isoLocal(x);
+}
+function sumarDias(iso,dias){
+    var p=iso.split('-');
+    var d=new Date(Number(p[0]),Number(p[1])-1,Number(p[2]));
+    d.setDate(d.getDate()+dias);
+    return isoLocal(d);
+}
+function fechaCorta(iso){
+    if(!iso) return '';
+    var p=iso.split('-');
+    var d=new Date(Number(p[0]),Number(p[1])-1,Number(p[2]));
+    return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
+}
+function textoFecha(){
+    if(detState.desde&&detState.hasta){
+        if(detState.desde===detState.hasta)return fechaCorta(detState.desde);
+        return fechaCorta(detState.desde)+' – '+fechaCorta(detState.hasta);
+    }
+    if(detState.desde)return 'Desde '+fechaCorta(detState.desde);
+    if(detState.hasta)return 'Hasta '+fechaCorta(detState.hasta);
+    return 'Fechas';
+}
+
+function clearDetTiles(){
+    var tiles=detTilesEl.querySelectorAll('.tile');
+    for(var i=0;i<tiles.length;i++)tiles[i].remove();
+}
+function showDetEmpty(msg){
+    detEmptyTxt.textContent=msg;
+    detEmptyEl.hidden=false;
+}
+function updateDetUI(){
+    detCountEl.textContent=fmtNum(detState.total);
+    detFiltersClearEl.hidden=!hayFiltros();
+    detDateBtn.classList.toggle('active',!!(detState.desde||detState.hasta));
+    detDateLabel.textContent=textoFecha();
+
+    detPagerEl.hidden=detState.total===0;
+    detPrevEl.disabled=detState.loading||detState.page<=1;
+    detNextEl.disabled=detState.loading||detState.page>=detState.totalPages||
+        !(detState.page+1 in detState.cursors);
+    detRefreshEl.disabled=detState.loading;
+    detPageInfoEl.textContent=detState.page+' / '+Math.max(1,detState.totalPages);
+
+    if(detState.loading){
+        detShownEl.textContent='Cargando…';
+    }else if(detState.total>0){
+        var inicio=(detState.page-1)*detState.pageSize+1;
+        var fin=Math.min(detState.page*detState.pageSize,detState.total);
+        detShownEl.textContent='Mostrando '+inicio+'–'+fin+' de '+fmtNum(detState.total);
+    }else{
+        detShownEl.textContent='';
+    }
+}
+function detUrl(cursor){
+    var p=new URLSearchParams();
+    p.set('limit',String(detState.pageSize));
+    if(detState.q)p.set('q',detState.q);
+    if(detState.empresa)p.set('empresa',detState.empresa);
+    if(detState.desde)p.set('desde',detState.desde);
+    if(detState.hasta)p.set('hasta',detState.hasta);
+    if(cursor){p.set('cursor_hora',cursor.hora);p.set('cursor_id',String(cursor.id));}
+    return '/api/detecciones?'+p.toString();
+}
+function cargarPagina(pagina){
+    if(detState.loading)return;
+    if(!(pagina in detState.cursors))return;
+    var seq=++detState.seq;
+    var cursor=detState.cursors[pagina];
+    detState.loading=true;
+    updateDetUI();
+    fetch(detUrl(cursor))
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+        .then(function(data){
+            if(seq!==detState.seq)return;
+            if(data.error)throw new Error(data.error);
+            if(typeof data.hora_corte==='number'){
+                detState.horaCorte=data.hora_corte;
+                detDateHint.textContent='Se filtra por día operativo (corte '+
+                    String(data.hora_corte).padStart(2,'0')+':00).';
+            }
+            detState.total=data.total||0;
+            detState.page=pagina;
+            detState.totalPages=Math.max(1,Math.ceil(detState.total/detState.pageSize));
+
+            for(var k in detState.cursors){
+                if(Number(k)>pagina)delete detState.cursors[k];
+            }
+            if(data.next_cursor)detState.cursors[pagina+1]=data.next_cursor;
+            else delete detState.cursors[pagina+1];
+
+            clearDetTiles();
+            var items=data.items||[];
+            for(var i=0;i<items.length;i++)detTilesEl.appendChild(makeTile(items[i]));
+            detEmptyEl.hidden=items.length>0;
+            if(items.length===0){
+                showDetEmpty(hayFiltros()?'No hay detecciones con esos filtros.':'Esperando detecciones…');
+            }
+            detTilesEl.scrollTop=0;
+            detState.loading=false;
+            updateDetUI();
+        })
+        .catch(function(){
+            if(seq!==detState.seq)return;
+            detState.loading=false;
+            if(detState.total===0){
+                detState.totalPages=1;
+                showDetEmpty('No se pudieron cargar las detecciones.');
+            }
+            updateDetUI();
+        });
+}
+
+function resetAndLoad(){
+    detState.loading=false;
+    detState.page=1;
+    detState.total=0;
+    detState.totalPages=1;
+    detState.cursors={1:null};
+    detTilesEl.scrollTop=0;
+    clearDetTiles();
+    detEmptyEl.hidden=true;
+    cargarPagina(1);
+}
+
+/* Búsqueda por número económico o empresa */
+var detQTimer=null;
+detQEl.addEventListener('input',function(){
+    detQClearEl.hidden=!detQEl.value;
+    clearTimeout(detQTimer);
+    detQTimer=setTimeout(function(){
+        detState.q=detQEl.value.trim();
+        resetAndLoad();
+    },350);
+});
+detQEl.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){
+        clearTimeout(detQTimer);
+        detState.q=detQEl.value.trim();
+        resetAndLoad();
+    }
+});
+detQClearEl.addEventListener('click',function(){
+    detQEl.value='';
+    detQClearEl.hidden=true;
+    detState.q='';
+    resetAndLoad();
+    detQEl.focus();
+});
+
+/* Filtro por empresa */
+detEmpresaEl.addEventListener('change',function(){
+    detState.empresa=detEmpresaEl.value;
+    resetAndLoad();
+});
+function cargarEmpresas(){
+    fetch('/api/detecciones/empresas')
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(data){
+            var empresas=(data&&data.empresas)||[];
+            for(var i=0;i<empresas.length;i++){
+                var o=document.createElement('option');
+                o.value=empresas[i];o.textContent=empresas[i];
+                detEmpresaEl.appendChild(o);
+            }
+        }).catch(function(){});
+}
+
+/* Filtro por fechas */
+function abrirPop(abrir){
+    detDatePop.hidden=!abrir;
+    detDateBtn.setAttribute('aria-expanded',abrir?'true':'false');
+    if(abrir){
+        detDesdeEl.value=detState.desde;
+        detHastaEl.value=detState.hasta;
+    }
+}
+detDateBtn.addEventListener('click',function(e){
+    e.stopPropagation();
+    abrirPop(detDatePop.hidden);
+});
+document.addEventListener('click',function(e){
+    if(!detDatePop.hidden&&!detDatePop.contains(e.target)&&e.target!==detDateBtn&&!detDateBtn.contains(e.target)){
+        abrirPop(false);
+    }
+});
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'&&!detDatePop.hidden)abrirPop(false);
+});
+var detPresets=detDatePop.querySelectorAll('[data-preset]');
+for(var dp=0;dp<detPresets.length;dp++){
+    detPresets[dp].addEventListener('click',function(){
+        var hoyOp=fechaOperativa(new Date()),desde,hasta;
+        if(this.getAttribute('data-preset')==='hoy'){
+            desde=hasta=hoyOp;
+        }else if(this.getAttribute('data-preset')==='ayer'){
+            desde=hasta=sumarDias(hoyOp,-1);
+        }else{
+            desde=sumarDias(hoyOp,-6);hasta=hoyOp;
+        }
+        detDesdeEl.value=desde;
+        detHastaEl.value=hasta;
+    });
+}
+detDateApply.addEventListener('click',function(){
+    var desde=detDesdeEl.value||'',hasta=detHastaEl.value||'';
+    if(desde&&hasta&&desde>hasta){var t=desde;desde=hasta;hasta=t;}
+    detState.desde=desde;
+    detState.hasta=hasta;
+    abrirPop(false);
+    resetAndLoad();
+});
+detDateClear.addEventListener('click',function(){
+    detDesdeEl.value='';
+    detHastaEl.value='';
+    detState.desde='';
+    detState.hasta='';
+    abrirPop(false);
+    resetAndLoad();
+});
+detFiltersClearEl.addEventListener('click',function(){
+    detQEl.value='';
+    detQClearEl.hidden=true;
+    detEmpresaEl.value='';
+    detDesdeEl.value='';
+    detHastaEl.value='';
+    detState.q='';
+    detState.empresa='';
+    detState.desde='';
+    detState.hasta='';
+    abrirPop(false);
+    resetAndLoad();
+});
+
+/* Paginación fija de 10 */
+function irPagina(delta){
+    if(detState.loading)return;
+    var destino=detState.page+delta;
+    if(destino<1||destino>detState.totalPages)return;
+    if(!(destino in detState.cursors))return;
+    cargarPagina(destino);
+}
+detPrevEl.addEventListener('click',function(){irPagina(-1);});
+detNextEl.addEventListener('click',function(){irPagina(1);});
+detRefreshEl.addEventListener('click',resetAndLoad);
+
+cargarEmpresas();
+resetAndLoad();
 
 /* ── Modo prueba: controles tipo YouTube sobre el video (solo con video grabado) ── */
 (function () {

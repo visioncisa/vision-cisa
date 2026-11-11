@@ -64,6 +64,10 @@ N_VOTOS           = 2      # lecturas iguales para confirmar un número
 # con estas lecturas iguales se registra tal cual, como "fuera del padrón", en vez
 # de "corregirlo" a uno parecido del padrón (2508 → 508 → 5008).
 VOTOS_FUERA_PADRON = int(os.getenv("VOTOS_FUERA_PADRON", "4"))
+# Fotos de cada aviso: las mejores en que se ve el camión, de momentos distintos
+# (separadas al menos FOTOS_SEPARACION_SEG). Se guardan y se mandan a Telegram y WhatsApp.
+FOTOS_POR_AVISO      = max(1, int(os.getenv("FOTOS_POR_AVISO", "3")))
+FOTOS_SEPARACION_SEG = float(os.getenv("FOTOS_SEPARACION_SEG", "1.0"))
 
 BBOX_MIN_POR_TIPO = {      # tamaño mínimo (px) de la zona del número
     'delantero': 80,

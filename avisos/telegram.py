@@ -50,13 +50,65 @@ def _fmt_tipo(t):  return "⚡ Eléctrica" if t == "electrica" else "🛢️ Die
 def _fmt_emp(e):
     return {"CISA": "🏢 CISA", "COPATSA": "🚌 COPATSA", "CCA": "🔵 CCA"}.get(e, f"🚍 {e}")
 
+def fotos_extra(frame_path):
+    """Fotos de otros momentos del mismo aviso: mismo nombre + _2, _3... (las guarda
+    ml/hilos.py junto a la principal). Lista vacía si no hay."""
+    if not frame_path:
+        return []
+    base = os.path.splitext(str(frame_path))[0]
+    extras = []
+    for i in range(2, 11):
+        ruta = f"{base}_{i}.jpg"
+        if not os.path.exists(ruta):
+            break
+        extras.append(ruta)
+    return extras
+
+
+def _album(chat_id, rutas, caption):
+    """Varias fotos en un solo mensaje (álbum); el texto va en la primera.
+    Devuelve el message_id de la primera foto o None."""
+    archivos, media = {}, []
+    try:
+        for i, ruta in enumerate(rutas):
+            archivos[f"f{i}"] = open(ruta, "rb")
+            item = {"type": "photo", "media": f"attach://f{i}"}
+            if i == 0:
+                item.update({"caption": caption, "parse_mode": "Markdown"})
+            media.append(item)
+        resp = requests.post(f"{TG_API}/sendMediaGroup",
+                             data={"chat_id": chat_id, "media": json.dumps(media)},
+                             files=archivos, timeout=30)
+        r = resp.json()
+        if not r.get("ok"):
+            print(f"[TG ERROR] álbum: {r.get('description')}")
+            return None
+        return r["result"][0]["message_id"]
+    finally:
+        for f in archivos.values():
+            f.close()
+
+
 def _foto(chat_id, frame_path, caption, reply_markup=None):
+    extras = fotos_extra(frame_path)
     if str(chat_id) == str(TG_CHAT_ID):
-        whatsapp_avisos.enviar(caption, frame_path)   # el mismo aviso del grupo, por WhatsApp
+        whatsapp_avisos.enviar(caption, frame_path, extras)   # el mismo aviso del grupo, por WhatsApp
     if SIN_TELEGRAM:
-        print(f"[SIN TELEGRAM] foto: {caption.splitlines()[0][:60]}")
+        print(f"[SIN TELEGRAM] foto ({1 + len(extras)}): {caption.splitlines()[0][:60]}")
         return None
     try:
+        if extras:
+            # Telegram no deja botones en un álbum: las fotos van juntas con el texto
+            # y, si hay botones (validador), van en un mensaje justo debajo. Ese
+            # mensaje es el que reciben los botones (los callbacks no editan nada).
+            mid = _album(chat_id, [frame_path] + extras, caption)
+            if mid and reply_markup:
+                resp = requests.post(f"{TG_API}/sendMessage", data={
+                    "chat_id": chat_id, "text": "👆 Valida la detección de arriba:",
+                    "reply_markup": reply_markup}, timeout=15)
+                r = resp.json()
+                return r["result"]["message_id"] if r.get("ok") else None
+            return mid
         data = {"chat_id": chat_id, "caption": caption, "parse_mode": "Markdown"}
         if reply_markup:
             data["reply_markup"] = reply_markup
@@ -252,6 +304,8 @@ def _on_no(msg_id, d):
         if src:
             dest_dir = "/media/cisa/JETSON_SD/telegram_unidades_erroneas"
             dest = f"{dest_dir}/{src.name if hasattr(src, 'name') else str(src).split('/')[-1]}"
+            for extra in fotos_extra(src):            # las fotos de otros momentos también
+                shutil.move(extra, f"{dest_dir}/{os.path.basename(extra)}")
             shutil.move(str(src), dest)
             print(f"[RECHAZADO] Frame movido a {dest}")
     except Exception as e:
