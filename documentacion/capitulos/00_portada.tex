@@ -1,0 +1,57 @@
+% =====================================================================
+%  00_portada.tex — Portada del documento
+%  Si cambias autores o versión, hazlo aquí y en estilos/cisa.sty.
+% =====================================================================
+\begin{titlepage}
+  \thispagestyle{empty}
+  \centering
+  \vspace*{1.2cm}
+
+  {\color{azulCISA}\rule{\linewidth}{2pt}}
+
+  \vspace{1.6cm}
+
+  {\Huge\bfseries\color{azulCISA} CISA\par}
+  \vspace{0.6cm}
+  {\LARGE Control de unidades por visión\par}
+
+  \vspace{1.0cm}
+  {\large Documentación técnica del sistema\par}
+
+  \vspace{2.2cm}
+
+  \begin{tikzpicture}[
+      nodo/.style={draw=azulCISA, fill=azulClaro, rounded corners=3pt,
+                   minimum width=2.5cm, minimum height=1.1cm,
+                   align=center, font=\footnotesize\bfseries},
+      linea/.style={-{Stealth[length=2.5mm]}, thick, draw=azulCISA}
+    ]
+    \node[nodo] (cam)  {Cámara\\RTSP};
+    \node[nodo, right=0.9cm of cam] (det) {YOLO\\+ lectura};
+    \node[nodo, right=0.9cm of det] (cruce) {Línea\\virtual};
+    \node[nodo, right=0.9cm of cruce] (bd) {Base de\\datos};
+    \node[nodo, below=0.9cm of bd] (web) {Tablero\\web};
+    \node[nodo, below=0.9cm of cruce] (grab) {Grabación\\72 h};
+    \node[nodo, left=0.9cm of grab] (avisos) {Avisos\\Telegram / WA};
+
+    \draw[linea] (cam) -- (det);
+    \draw[linea] (det) -- (cruce);
+    \draw[linea] (cruce) -- (bd);
+    \draw[linea] (bd) -- (web);
+    \draw[linea] (cruce) -- (avisos);
+    \draw[linea] (cruce) -- (grab);
+  \end{tikzpicture}
+
+  \vfill
+
+  \begin{tabular}{rl}
+    \textbf{Versión:}   & \versionDoc \\[2pt]
+    \textbf{Fecha:}     & \fechaDoc \\[2pt]
+    \textbf{Equipo:}    & VisionCISA \\[2pt]
+    \textbf{Repositorio:} & \url{https://github.com/visioncisa/vision-cisa} \\
+  \end{tabular}
+
+  \vspace{1.2cm}
+  {\color{azulCISA}\rule{\linewidth}{2pt}}
+  \vspace{0.4cm}
+\end{titlepage}

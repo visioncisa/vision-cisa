@@ -1,0 +1,107 @@
+% =====================================================================
+%  01_introduccion.tex — Qué es CISA, para qué sirve y qué NO hace
+% =====================================================================
+\chapter{Introducción}
+\label{cap:introduccion}
+
+\section{Qué es CISA}
+
+\cisa{} es el sistema de control de acceso de unidades que corre en una
+computadora NVIDIA Jetson Orin instalada junto a la puerta del patio. Usa una
+cámara de video para \textbf{detectar cada autobús}, \textbf{leer su número
+económico}, decidir si \textbf{entra o sale} del patio y \textbf{guardar el
+movimiento}. Un tablero web muestra el video en vivo, las detecciones y qué
+unidades están adentro en este momento.
+
+El sistema no necesita que nadie capture datos a mano: la cámara es la única
+fuente de información. La operación diaria se reduce a revisar el tablero y,
+cuando el sistema tiene duda sobre una lectura, confirmarla por Telegram.
+
+\section{El problema que resuelve}
+
+Antes, el registro de entradas y salidas dependía de que una persona anotara
+cada unidad. Eso produce tres problemas:
+
+\begin{itemize}
+  \item \textbf{Se pierden movimientos}, sobre todo en horas pico o cuando hay
+        varias unidades cruzando al mismo tiempo.
+  \item \textbf{Los tiempos no son confiables}: la hora de entrada y de salida
+        se anota tarde, o se redondea.
+  \item \textbf{No hay evidencia}: si alguien cuestiona un registro, no existe
+        foto ni video que lo respalde.
+\end{itemize}
+
+\cisa{} ataca los tres: registra solo (con un evento por cruce), sella la hora
+del servidor y guarda las fotos del aviso, además de 72 horas de video
+continuo.
+
+\section{Qué hace el sistema}
+
+\begin{enumerate}
+  \item \textbf{Detecta} los autobuses en el video y los sigue cuadro a cuadro.
+  \item \textbf{Lee} el número económico en la zona delantera, lateral o trasera.
+  \item \textbf{Confirma} el número con varias lecturas iguales (votación).
+  \item \textbf{Decide} entrada o salida según el lado de una línea virtual.
+  \item \textbf{Descarta} maniobras (un camión que se acerca, retrocede y se va).
+  \item \textbf{Valida} la foto con Gemini y, si hay duda, pide apoyo humano por
+        Telegram.
+  \item \textbf{Registra} el paso en una base SQLite y calcula la estancia
+        (tiempo dentro del patio).
+  \item \textbf{Publica} todo en un tablero web y manda avisos por Telegram y
+        WhatsApp.
+  \item \textbf{Graba} el video completo de la cámara, un archivo por hora, y
+        conserva las últimas 72 horas.
+\end{enumerate}
+
+\section{Alcance de este documento}
+
+Este documento describe el sistema tal como está implementado en el repositorio,
+con el detalle suficiente para:
+
+\begin{itemize}
+  \item \textbf{Instalarlo} en una Jetson nueva o reconstruir la imagen Docker.
+  \item \textbf{Operarlo} día a día y resolver las fallas más comunes.
+  \item \textbf{Entenderlo} para modificarlo sin romper la lógica de conteo.
+  \item \textbf{Documentar} los datos: qué se guarda, dónde y con qué reglas.
+\end{itemize}
+
+Queda \textbf{fuera de alcance}: el entrenamiento de los modelos de visión (se
+documenta solo su uso), la administración de la red del patio y el
+mantenimiento físico de la cámara.
+
+\begin{nota}[title={Este documento se actualiza con el código}]
+Si cambias el comportamiento del sistema, actualiza el capítulo
+correspondiente en el mismo \emph{pull request}. La documentación vive en la
+carpeta \path{documentacion/} del repositorio; el flujo de trabajo está en
+\path{documentacion/README.md}.
+\end{nota}
+
+\section{Glosario}
+
+Los términos que se usan en todo el documento:
+
+\begin{description}[style=nextline]
+  \item[Unidad] Autobús del patio. Se identifica por su número económico.
+  \item[Número económico] El número pintado en la unidad (por ejemplo
+        \texttt{5038}). Es la llave de todo el sistema.
+  \item[Padrón] Lista oficial de unidades válidas. Su única fuente es
+        \path{padron.csv}.
+  \item[Fuera del padrón] Número que el sistema leyó varias veces igual, pero
+        que no está en \path{padron.csv}. Se registra tal cual, marcado como
+        \emph{no registrado}; no se ``corrige'' a un número parecido.
+  \item[Línea virtual] Segmento imaginario dibujado sobre la imagen de la
+        cámara. Cruzarlo cambia el estado de la unidad.
+  \item[Margen de línea] Franja de píxeles alrededor de la línea virtual donde
+        el lado de la unidad \emph{no} cambia. Evita falsos cruces cuando un
+        camión se detiene justo encima.
+  \item[Cruce] Evento de entrada o salida confirmado.
+  \item[Maniobra] Movimiento de acercarse a la puerta y regresar sin pasar.
+        Se descarta y no genera registro.
+  \item[Estancia] Visita completa de una unidad: desde que entra hasta que sale.
+  \item[Zona] Parte de la unidad donde se leyó el número:
+        \emph{delantera}, \emph{lateral} o \emph{trasera}.
+  \item[Aviso] Mensaje (foto + texto) que se publica en Telegram y WhatsApp
+        cuando hay un cruce o una duda.
+  \item[M1, M2, M3] Los tres modelos de visión: M1 detecta autobuses, M2
+        localiza la zona del número y M3 lee los dígitos.
+\end{description}

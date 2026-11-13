@@ -1,0 +1,14 @@
+# Configuración de latexmk para la documentación de CISA.
+# Los archivos intermedios (.aux, .log, .toc, .bbl ...) se generan en build/
+# para no ensuciar la carpeta del proyecto.
+
+$pdf_mode = 1;
+$out_dir   = 'build';
+
+$pdflatex = 'pdflatex -interaction=nonstopmode -file-line-error -halt-on-error %O %S';
+
+# Bibliografía (BibTeX) dentro de build/
+$bibtex_use = 2;
+
+# Qué borra "latexmk -C"
+$clean_ext = 'aux out log toc lof lot fls fdb_latexmk synctex.gz run.xml bcf blg bbl';

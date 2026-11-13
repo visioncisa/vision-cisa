@@ -1,0 +1,63 @@
+% =====================================================================
+%  capitulo-nuevo.tex — Plantilla para un capítulo de la documentación
+%  ---------------------------------------------------------------------
+%  1. Copiar este archivo a capitulos/NN_mi-capitulo.tex
+%  2. Cambiar título, etiqueta y contenido.
+%  3. Registrarlo en main.tex con \input{capitulos/NN_mi-capitulo}
+%  4. Crear su carpeta de imágenes: figuras/NN_mi_capitulo/
+%  5. Compilar con: make
+%
+%  NO cargar paquetes aquí: si hace falta uno, va en estilos/cisa.sty.
+% =====================================================================
+\chapter{Título del capítulo}
+\label{cap:mi-capitulo}
+
+\section{Primera sección}
+
+Texto introductorio. Explicar el problema antes de la solución.
+
+\subsection{Un detalle}
+
+Para rutas y archivos usar \path{ml/hilos.py}. Para código corto,
+\texttt{N\_VOTOS} (con el guion bajo escapado).
+
+\begin{nota}
+Las cajas \texttt{nota}, \texttt{aviso} y \texttt{peligro} sirven para
+resaltar información que no debe perderse entre el texto.
+\end{nota}
+
+\section{Una figura}
+
+\begin{figure}[htbp]
+  \centering
+  % \includegraphics[width=0.8\linewidth]{NN_mi_capitulo/mi-imagen.png}
+  \caption{Pie de figura que explica qué se ve.}
+  \label{fig:mi-figura}
+\end{figure}
+
+Como muestra la figura~\ref{fig:mi-figura}, \ldots
+
+\section{Una tabla}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  \toprule
+  \textbf{Columna} & \textbf{Qué significa} \\
+  \midrule
+  Dato 1 & Explicación. \\
+  Dato 2 & Explicación. \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\section{Un bloque de código}
+
+\begin{lstlisting}[language=bash, caption={Qué hace este comando},
+                   label={lst:mi-comando}]
+docker compose up -d
+\end{lstlisting}
+
+\section{Cierre}
+
+Resumir la idea principal y enlazar con el capítulo siguiente
+(capítulo~\ref{cap:referencia}).

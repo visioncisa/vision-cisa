@@ -55,6 +55,7 @@ metricas/            base de datos (storage.py, schema.sql) y datos del tablero 
 web/                 Flask: páginas, API, video en vivo, fotos y grabaciones
 templates/, static/  páginas: tablero, video en vivo, grabaciones
 scripts/             herramientas de operación (ver abajo)
+documentacion/       documentación técnica en LaTeX (ver documentacion/README.md)
 Dockerfile           imagen para JetPack 7.2 (CUDA 13.2, TensorRT 10.16)
 docker-compose.yml   servicios cisa-vision (detección), cisa-grabacion y cisa-whatsapp
 ```

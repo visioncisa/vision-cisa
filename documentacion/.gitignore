@@ -1,0 +1,35 @@
+# ── Productos de compilación (se regeneran con `make`) ───────────────
+build/
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.xdv
+main.pdf
+CISA-documentacion.pdf
+
+# ── Respaldos y archivos temporales ──────────────────────────────────
+*.bak
+*.old
+*~
+.DS_Store
+
+# ── Las figuras SÍ se versionan ──────────────────────────────────────
+# El .gitignore de la raíz del repositorio ignora *.jpg (fotos del sistema).
+# Estas reglas vuelven a incluir las imágenes que pertenecen a la
+# documentación, que sí deben ir en Git.
+!figuras/**/*.jpg
+!figuras/**/*.jpeg
+!figuras/**/*.JPG
+!figuras/**/*.png
+!figuras/**/*.svg
+!figuras/**/*.pdf

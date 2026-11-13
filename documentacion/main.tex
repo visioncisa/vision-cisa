@@ -1,0 +1,45 @@
+% =====================================================================
+%  main.tex — Documento maestro de la documentación de CISA
+%  ---------------------------------------------------------------------
+%  Este archivo SOLO ordena: portada, índices y lista de capítulos.
+%  El texto va en capitulos/*.tex y las imágenes en figuras/<capítulo>/.
+%
+%  Compilar:  make          (o: latexmk -pdf main.tex)
+%  Leer:      README.md
+% =====================================================================
+\documentclass[11pt,a4paper,oneside]{book}
+
+\usepackage{estilos/cisa}
+
+\begin{document}
+
+\frontmatter
+
+% ── Portada ──────────────────────────────────────────────────────────
+\input{capitulos/00_portada}
+
+% ── Índices ──────────────────────────────────────────────────────────
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ── Capítulos ────────────────────────────────────────────────────────
+\mainmatter
+
+\input{capitulos/01_introduccion}
+\input{capitulos/02_arquitectura}
+\input{capitulos/03_instalacion}
+\input{capitulos/04_operacion}
+\input{capitulos/05_datos}
+\input{capitulos/06_referencia}
+
+% ── Apéndices ────────────────────────────────────────────────────────
+\appendix
+\input{capitulos/A_checklist}
+
+% ── Bibliografía ─────────────────────────────────────────────────────
+\backmatter
+\bibliographystyle{plain}
+\bibliography{bibliografia/referencias}
+
+\end{document}

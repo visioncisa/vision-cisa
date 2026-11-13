@@ -1,0 +1,248 @@
+% =====================================================================
+%  02_arquitectura.tex — Cómo está armado el sistema y por qué
+% =====================================================================
+\chapter{Arquitectura del sistema}
+\label{cap:arquitectura}
+
+\section{Vista general}
+
+\cisa{} es un proceso de Python (contenedor \texttt{cisa-vision}) que arranca la
+cámara, lanza dos hilos de visión y un servidor web Flask en el mismo equipo. A
+su lado corren dos servicios más: \texttt{cisa-grabacion}, que copia el video
+tal cual llega de la cámara, y \texttt{cisa-whatsapp}, que reenvía los avisos a
+WhatsApp. La base de datos es un archivo SQLite en el disco de la Jetson.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[node distance=0.7cm and 0.6cm]
+
+    % Fila 1: adquisición y lectura
+    \node[caja] (cam)   at (0,0)    {Cámara\\RTSP};
+    \node[caja] (m1)    at (3.8,0)  {M1\\YOLO + ByteTrack};
+    \node[caja] (m23)   at (7.6,0)  {M2 + M3\\zona y dígitos};
+    \node[caja] (voto)  at (11.2,0) {Votación\\$N$ lecturas iguales};
+
+    % Fila 2: decisión y registro
+    \node[caja] (linea) at (11.2,-2.1) {Línea virtual\\entrada / salida};
+    \node[caja] (valid) at (7.6,-2.1)  {Validación\\Gemini + Telegram};
+    \node[caja] (reg)   at (3.8,-2.1)  {Registro\\SQLite};
+    \node[caja] (web)   at (0,-2.1)    {Tablero web\\MJPEG + consultas};
+
+    % Fila 3: servicios paralelos
+    \node[cajaGris] (grab)  at (0,-4.2)  {Grabación\\lee el RTSP directo};
+    \node[cajaGris] (avisos) at (3.8,-4.2) {Avisos\\Telegram / WhatsApp};
+
+    \draw[flecha] (cam) -- (m1);
+    \draw[flecha] (m1) -- node[etiqueta,above]{recortes} (m23);
+    \draw[flecha] (m23) -- node[etiqueta,above]{número} (voto);
+    \draw[flecha] (voto) -- (linea);
+    \draw[flecha] (linea) -- node[etiqueta,above]{cruce} (valid);
+    \draw[flecha] (valid) -- (reg);
+    \draw[flecha] (reg) -- (web);
+    \draw[flecha] (reg) -- (avisos);
+
+    % La grabación lee la misma cámara, sin pasar por la detección
+    \draw[flechaGris] (cam.west) -- ++(-2.4,0) |- (grab.west);
+
+    % Recuadro de agrupación
+    \begin{scope}[on background layer]
+      \node[draw=azulCISA, dashed, rounded corners=4pt,
+            fit=(m1)(m23)(voto)(linea)(valid)(reg),
+            inner sep=0.3cm,
+            label={[font=\scriptsize\bfseries,text=azulCISA]above:%
+                   {cisa-vision (un proceso, dos hilos)}}] {};
+    \end{scope}
+  \end{tikzpicture}%
+  }
+  \caption{Flujo de un autobús desde la cámara hasta el registro. La grabación
+           es independiente de la detección: solo copia el video.}
+  \label{fig:flujo}
+\end{figure}
+
+\section{Componentes}
+
+\subsection{Cámara (\texttt{logica/camara.py})}
+
+Lee el video por RTSP con decodificación por hardware de la Jetson. Si eso
+falla, o si se configura \texttt{CAM\_BACKEND=ffmpeg}, usa FFmpeg. Si
+\texttt{RTSP\_URL} apunta a un archivo \texttt{.mp4}, el sistema entra en
+\emph{modo prueba}: reproduce el video como si fuera la cámara. La clase
+\texttt{CameraStream} mantiene siempre el cuadro más reciente en
+\texttt{logica/estado.py}, de donde lo toman la detección, el video en vivo y
+las capturas.
+
+\subsection{Detección M1 (\texttt{ml/hilos.py}, \texttt{HiloM1})}
+
+YOLO detecta autobuses y ByteTrack les asigna un identificador que se conserva
+mientras el camión está en cuadro. El hilo está limitado por
+\texttt{YOLO\_FPS\_MAX} (0 = sin límite, procesa cada cuadro nuevo). Su salida
+son recortes de cada autobús que se pasan al segundo hilo por una cola.
+
+\subsection{Lectura M2 + M3 (\texttt{ml/hilos.py}, \texttt{HiloM2M3})}
+
+\begin{itemize}
+  \item \textbf{M2} localiza la zona del número y la clasifica como
+        \emph{delantera}, \emph{lateral} o \emph{trasera}. Cada zona detectada
+        se asigna al autobús que la contiene.
+  \item \textbf{M3} lee los dígitos de esa zona.
+\end{itemize}
+
+Un autobús necesita \textbf{2 lecturas iguales} (\texttt{N\_VOTOS}) para que su
+número quede confirmado. El hilo respeta \texttt{M2\_FPS\_MAX} y dos topes por
+cuadro: \texttt{MAX\_ZONAS\_POR\_BUS} (2 zonas por camión) y
+\texttt{MAX\_LECTURAS\_M3} (4 lecturas en total). Gracias a esos topes, la carga
+de la GPU no crece aunque haya muchos camiones a la vez.
+
+\subsection{Línea virtual (\texttt{ml/linea\_virtual.py})}
+
+La línea es un segmento definido por dos puntos en la imagen
+(\texttt{LINEA\_P1}, \texttt{LINEA\_P2}). El sistema calcula de qué lado está el
+centro del autobús y lo compara con \texttt{LADO\_ENTRADA}. Alrededor de la
+línea hay un margen (\texttt{MARGEN\_LINEA\_PX}) en el que el lado
+\emph{no cambia}: así el temblor de la detección con el camión detenido sobre la
+línea no se cuenta como cruce.
+
+\subsection{Registro de un solo evento por cruce}
+
+Cuando un número confirmado cruza, el sistema no registra de inmediato. Espera
+a que el camión termine de pasar (\texttt{ESPERA\_FIN\_SEG} sin verlo, con un
+máximo de \texttt{ESPERA\_MAX\_SEG}) y entonces elige el mejor número leído.
+Las reglas son:
+
+\begin{enumerate}
+  \item Si dos números compiten y uno es otro con dígitos de menos
+        (\texttt{504} dentro de \texttt{5014}), gana el más largo.
+  \item Si el número más leído \textbf{no está en el padrón} y se leyó al menos
+        \texttt{VOTOS\_FUERA\_PADRON} veces igual, se registra tal cual como
+        \emph{fuera del padrón}. No se ``corrige'' a un número parecido
+        (\texttt{2508} no se convierte en \texttt{5008}).
+  \item Un mismo número no se vuelve a registrar antes de
+        \texttt{DEBOUNCE\_SEG} (60 s por defecto).
+  \item Si la unidad regresa antes de \texttt{MANIOBRA\_SEG}, el movimiento se
+        considera maniobra y se descarta.
+\end{enumerate}
+
+\subsection{Validación (\texttt{avisos/gemini.py}, \texttt{avisos/telegram.py})}
+
+Antes de dar por bueno un cruce, Gemini revisa la foto. Si hay duda, se manda
+la imagen a los validadores por Telegram para que una persona confirme o
+corrija. En pruebas se apaga con \texttt{SIN\_TELEGRAM=1}. La validación con
+Gemini se controla aparte con \texttt{VALIDAR\_CON\_GEMINI}.
+
+\subsection{Persistencia (\texttt{metricas/})}
+
+La base SQLite guarda eventos y estancias; el padrón \textbf{no} se guarda como
+fuente, se sincroniza desde \path{padron.csv} en cada arranque. El detalle del
+esquema está en el capítulo~\ref{cap:datos}.
+
+\subsection{Web (\texttt{web/})}
+
+Flask sirve el tablero, el video en vivo por MJPEG, las fotos, las grabaciones y
+una API JSON. Las rutas solo \emph{leen}: no contienen lógica de visión ni de
+almacenamiento. El detalle de los endpoints está en el
+capítulo~\ref{cap:referencia}.
+
+\subsection{Grabación (\texttt{scripts/grabar.sh})}
+
+Copia el stream de la cámara sin recodificar (Full HD H.265), un archivo por
+hora. Conserva 72 horas y rota los archivos viejos. Corre como servicio aparte
+para que una falla en la detección no detenga la grabación, y viceversa.
+
+\subsection{WhatsApp (\texttt{whatsapp/})}
+
+Servicio Node.js con Baileys que mantiene una sesión de WhatsApp Web y reenvía
+los mismos avisos del grupo de Telegram a \texttt{WHATSAPP\_NUMERO}. No usa la
+API oficial. La sesión vive en \path{whatsapp/sesion/} y equivale a la
+contraseña de la cuenta: no se comparte ni se sube a Git.
+
+\section{Mapa de módulos}
+
+\begin{longtable}{@{}L{4.3cm}L{4.3cm}L{5.7cm}@{}}
+  \toprule
+  \textbf{Archivo} & \textbf{Qué es} & \textbf{Responsabilidad} \\
+  \midrule
+  \endhead
+  \path{config.py} & Configuración & Único archivo que lee el \texttt{.env}; valida
+    variables, modelos, carpetas y padrón al arrancar. \\
+  \path{pipe_stream_v2.py} & Arranque & Crea la cámara, lanza los hilos y el
+    servidor web. \\
+  \path{logica/camara.py} & Adquisición & Lectura RTSP, respaldo FFmpeg, modo
+    prueba con \texttt{.mp4}. \\
+  \path{logica/estado.py} & Estado compartido & Último cuadro, estado del
+    pipeline y referencias de runtime. \\
+  \path{ml/modelos.py} & Modelos & Carga y calentamiento de los motores
+    TensorRT; helpers de zona. \\
+  \path{ml/hilos.py} & Hilos de visión & \texttt{HiloM1} (detección) y
+    \texttt{HiloM2M3} (lectura). \\
+  \path{ml/preprocesamiento.py} & Preproceso & Ajustes a la imagen antes de leer
+    los dígitos. \\
+  \path{ml/reconocimiento.py} & Reconocimiento & Recortes con margen, lectura de
+    dígitos, validación del número, guardado de crops. \\
+  \path{ml/linea_virtual.py} & Cruce & Lado de la línea, distancia, evaluación
+    del cruce y reasociación de números. \\
+  \path{metricas/schema.sql} & Esquema & Tablas, índices y vistas de la base. \\
+  \path{metricas/storage.py} & Persistencia & Conexión por hilo, migración,
+    sincronización del padrón, altas y consultas. \\
+  \path{metricas/metricas.py} & Agregados & Cálculos que alimentan el tablero. \\
+  \path{avisos/telegram.py} & Avisos & Envío de fotos y texto a Telegram y a los
+    validadores. \\
+  \path{avisos/gemini.py} & Validación & Revisión automática de la foto. \\
+  \path{avisos/whatsapp.py} & Avisos & Puente hacia el servicio de WhatsApp. \\
+  \path{web/servidor.py} & Flask & Instancia de la aplicación. \\
+  \path{web/rutas.py} & HTTP & Todas las rutas: API, páginas, MJPEG, archivos. \\
+  \path{templates/}, \path{static/} & Interfaz & Páginas HTML, CSS y JavaScript. \\
+  \path{whatsapp/puente.js} & WhatsApp & Sesión de WhatsApp Web (Node + Baileys). \\
+  \path{scripts/} & Operación & Cambio de fuente, grabación, monitoreo y red. \\
+  \bottomrule
+  \caption{Módulos del repositorio y su responsabilidad.}
+  \label{tab:modulos}
+\end{longtable}
+
+\section{Concurrencia y rendimiento}
+
+El sistema está pensado para una sola Jetson compartida por todo el pipeline:
+
+\begin{itemize}
+  \item \textbf{Un cuadro, muchos consumidores.} La cámara publica el cuadro más
+        reciente; nadie guarda copias de más.
+  \item \textbf{Dos hilos con límites independientes.} M1 y M2/M3 tienen su
+        propio tope de cuadros por segundo (\texttt{YOLO\_FPS\_MAX},
+        \texttt{M2\_FPS\_MAX}). Bajar el segundo alivia la GPU sin dejar de
+        detectar autobuses.
+  \item \textbf{Topes por cuadro.} M3 nunca hace más de
+        \texttt{MAX\_LECTURAS\_M3} lecturas por cuadro, así que el consumo no
+        depende del número de camiones en imagen.
+  \item \textbf{Relectura selectiva.} Un camión con número ya confirmado que no
+        ha cruzado se vuelve a leer cada \texttt{RELECTURA\_SEG} segundos, para
+        no gastar GPU en lo mismo.
+  \item \textbf{Sin base de datos en el camino crítico de la imagen.} La
+        escritura ocurre una sola vez por cruce, no por cuadro.
+\end{itemize}
+
+\begin{aviso}[title={Antes de subir los FPS}]
+Subir \texttt{M2\_FPS\_MAX} mejora la lectura cuando los camiones pasan rápido,
+pero calienta la Jetson. Mide el consumo y la temperatura antes de dejarlo
+permanente. Las cifras medidas están en el capítulo~\ref{cap:operacion}.
+\end{aviso}
+
+\section{Decisiones de diseño}
+
+\begin{description}[style=nextline]
+  \item[Un solo \texttt{config.py}.] Ningún otro archivo usa
+        \texttt{os.getenv}. Así se sabe de un vistazo qué variables existen y
+        qué pasa si falta una.
+  \item[El padrón es un archivo, no una tabla.] Se edita \path{padron.csv} y se
+        reinicia. Evita dos fuentes de verdad para las unidades válidas.
+  \item[Votación en vez de una lectura.] Una sola lectura confunde \texttt{5}
+        con \texttt{6} o \texttt{8} con \texttt{3}; dos lecturas iguales bajan
+        mucho el error sin frenar el paso.
+  \item[Margen de línea.] El detector tiembla un par de píxeles con el camión
+        detenido. Sin margen, un camión esperando en la puerta generaría
+        entradas y salidas en cadena.
+  \item[Esperar a que termine de pasar.] Registrar al instante obliga a decidir
+        con la primera lectura. Esperar unos segundos permite elegir el mejor
+        número y evita dos registros del mismo cruce.
+  \item[Fuera del padrón es un estado válido.] Es mejor registrar ``no
+        reconocido'' con evidencia que inventar una unidad parecida.
+\end{description}

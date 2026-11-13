@@ -1,0 +1,149 @@
+% =====================================================================
+%  04_operacion.tex — Uso diario, avisos, scripts y fallas comunes
+% =====================================================================
+\chapter{Operación}
+\label{cap:operacion}
+
+\section{Rutina diaria}
+
+\begin{enumerate}
+  \item Abrir el tablero en \url{http://<ip-jetson>:5001/} y confirmar que el
+        video se mueve.
+  \item Revisar el grupo de Telegram: los cruces llegan con foto y texto. Si
+        algún aviso pide validación, confirmarlo.
+  \item Al final del día, revisar las estancias y las unidades que quedaron
+        adentro.
+  \item Una vez por semana, verificar el espacio en disco de las grabaciones.
+\end{enumerate}
+
+\section{Tablero y video en vivo}
+
+\begin{longtable}{@{}L{4.5cm}L{10cm}@{}}
+  \toprule
+  \textbf{Página} & \textbf{Para qué sirve} \\
+  \midrule
+  \endhead
+  \path{/} & Tablero: video, última detección, unidades dentro, entradas y
+    salidas del día, estancias y promedios por empresa. \\
+  \path{/livevideo} & Video en vivo (MJPEG) y lista de detecciones con búsqueda
+    por número o empresa, filtro por fechas y paginación fija de 10. \\
+  \path{/grabaciones} & Grabaciones por hora y por cámara. \\
+  \path{/home} & Página de inicio alternativa. \\
+  \bottomrule
+  \caption{Páginas del sistema.}
+  \label{tab:paginas}
+\end{longtable}
+
+\section{Grabaciones}
+
+Se guardan en \texttt{GRABACIONES\_DIR}, dentro de \path{cam1_grabacion}, un
+archivo por hora, sin recodificar. Se conservan 72 horas.
+
+\begin{lstlisting}[language=bash, caption={Estado de la grabación},
+                   label={lst:grabar}]
+bash scripts/grabar.sh estado
+\end{lstlisting}
+
+El script dice si está grabando, qué archivos hay y cuánto ocupan, y avisa si no
+se está guardando nada.
+
+\section{WhatsApp}
+
+El servicio \texttt{cisa-whatsapp} manda al número configurado los mismos avisos
+que se publican en el grupo de Telegram.
+
+\begin{enumerate}
+  \item Poner en el \path{.env} el número que recibe:
+        \texttt{WHATSAPP\_NUMERO=525512345678} (52 + 10 dígitos).
+  \item \texttt{docker compose up -d} y luego
+        \texttt{docker compose logs -f cisa-whatsapp}.
+  \item Con el teléfono que va a \textbf{mandar} los avisos: WhatsApp →
+        Dispositivos vinculados → Vincular un dispositivo → escanear el QR del
+        log.
+  \item La sesión queda en \path{whatsapp/sesion/} y no vuelve a pedir el QR.
+        Para cambiar de teléfono, borra esa carpeta y reinicia el servicio.
+\end{enumerate}
+
+\begin{peligro}[title={No es la API oficial}]
+El número que manda puede ser bloqueado si WhatsApp lo considera spam. Usa un
+número dedicado, guárdalo en los contactos del teléfono que recibe y contéstale
+una vez. \path{whatsapp/sesion/} equivale a la contraseña de esa cuenta: no se
+comparte ni se sube a GitHub.
+\end{peligro}
+
+\section{Scripts de operación}
+
+\begin{longtable}{@{}L{4.4cm}L{10cm}@{}}
+  \toprule
+  \textbf{Script} & \textbf{Para qué} \\
+  \midrule
+  \endhead
+  \path{fuente.py} & \texttt{python3 scripts/fuente.py camara} o \texttt{video}:
+    cambia entre la cámara y el video de prueba. Sin argumento, muestra cuál
+    está activa. \\
+  \path{grabar.sh} & \texttt{bash scripts/grabar.sh estado}: dice si graba, qué
+    archivos hay y cuánto ocupan. Avisa si no se guarda nada. \\
+  \path{check_tailscale.py} & Monitor de cámaras por ping: avisa por Telegram si
+    una se cae (pensado para cron). \\
+  \path{configurar_site.sh} & Red del patio: puerto de la placa para internet y
+    adaptador USB para las cámaras. \\
+  \path{arrancar.sh} & Arranque manual del pipeline fuera de Docker. \\
+  \bottomrule
+  \caption{Herramientas de la carpeta \texttt{scripts/}.}
+  \label{tab:scripts}
+\end{longtable}
+
+\section{Problemas comunes}
+
+\begin{longtable}{@{}L{5cm}L{4.6cm}L{4.8cm}@{}}
+  \toprule
+  \textbf{Síntoma} & \textbf{Causa probable} & \textbf{Qué hacer} \\
+  \midrule
+  \endhead
+  El contenedor reinicia en bucle & Falta una variable o un modelo & Revisar
+    \texttt{docker compose logs}; el mensaje dice qué falta. \\
+  No hay video en el tablero & Se cayó la cámara o la red & Probar el RTSP con
+    el visor de la cámara; revisar \texttt{CAM\_BACKEND}. \\
+  El video se ve pero no hay detecciones & YOLO no corre o el FPS es 0 & Revisar
+    \texttt{/health} y \texttt{YOLO\_FPS\_MAX}. \\
+  Se registran entradas y salidas falsas & Margen de línea muy pequeño o línea
+    mal trazada & Ajustar \texttt{LINEA\_P1}, \texttt{LINEA\_P2} y subir
+    \texttt{MARGEN\_LINEA\_PX}. \\
+  Números equivocados & Zona mal detectada o poca lectura & Subir
+    \texttt{M2\_FPS\_MAX} y revisar los crops guardados. \\
+  Un número aparece como ``fuera del padrón'' & La unidad no está en
+    \path{padron.csv} & Agregarla al padrón y reiniciar. \\
+  No llegan avisos a Telegram & \texttt{SIN\_TELEGRAM=1} o token inválido &
+    Revisar el \path{.env} y los logs. \\
+  No llegan avisos a WhatsApp & Sesión caída o número vacío & Ver logs de
+    \texttt{cisa-whatsapp} y volver a vincular. \\
+  Se llena el disco & Rotación de grabaciones detenida & Revisar
+    \texttt{GRABACIONES\_DIR} y \texttt{grabar.sh estado}. \\
+  \bottomrule
+  \caption{Fallas frecuentes y su solución.}
+  \label{tab:fallas}
+\end{longtable}
+
+\section{Consumo medido}
+
+Medición en Jetson Orin, modo 25 W, cámara Full HD:
+
+\begin{itemize}
+  \item Sin autobús: unos \textbf{11 W}.
+  \item Con autobús: \textbf{14 a 19 W}.
+  \item La grabación no sube el consumo.
+  \item Grabación: unos \textbf{0.9 GB por hora}, unos \textbf{65 GB} por 72
+        horas.
+\end{itemize}
+
+\section{Buenas prácticas}
+
+\begin{itemize}
+  \item No edites archivos dentro del contenedor: los cambios se pierden al
+        recrearlo.
+  \item No borres \path{datos/} para ``limpiar''; si hay que reiniciar la base,
+        respáldala primero.
+  \item Si cambias la posición de la cámara, vuelve a trazar la línea virtual.
+  \item Cada cambio de código o de comportamiento debe venir con su cambio en
+        esta documentación.
+\end{itemize}
