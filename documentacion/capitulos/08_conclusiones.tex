@@ -1,0 +1,28 @@
+% =====================================================================
+%  08_conclusiones.tex — Conclusiones (preliminares en esta versión)
+% =====================================================================
+\chapter{Conclusiones}
+\label{cap:conclusiones}
+
+\begin{nota}[title={Conclusiones preliminares}]
+Estas conclusiones corresponden al Prototipo~1 y se actualizarán al cerrar
+cada prototipo.
+\end{nota}
+
+El Prototipo~1 de \saru{} demuestra que es viable registrar de forma
+automática las entradas y salidas de unidades en la puerta del Patio CCA
+con procesamiento en el borde. Una sola Jetson ejecuta tres modelos en
+cascada, decide los cruces, registra los movimientos, publica un tablero y
+graba video continuo con un consumo de entre 11 y 19~W.
+
+La metodología de prototipado evolutivo resultó adecuada: varios de los
+casos más importantes, como las unidades detenidas sobre la línea, varias
+unidades a la vez o los números leídos con dígitos de menos, solo
+aparecieron al probar con video real, y se corrigieron sin detener la
+operación.
+
+Los principales retos para los siguientes prototipos son tres: garantizar
+la entrega de los avisos desde la red del patio, mejorar la lectura en
+vistas no laterales y medir formalmente la exactitud del sistema. A ellos
+se suma un reto del proyecto: unificar las versiones del código y mantener
+esta documentación al día con cada cambio.

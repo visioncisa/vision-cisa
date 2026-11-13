@@ -15,7 +15,7 @@ build/
 *.run.xml
 *.xdv
 main.pdf
-CISA-documentacion.pdf
+SARU-documentacion.pdf
 
 # ── Respaldos y archivos temporales ──────────────────────────────────
 *.bak

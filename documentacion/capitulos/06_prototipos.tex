@@ -1,0 +1,533 @@
+% =====================================================================
+%  06_prototipos.tex — Un apartado por prototipo, con la misma
+%  estructura: introducción, objetivo, historias de usuario,
+%  arquitectura, componentes, interfaz, desarrollo y pruebas.
+%  Al agregar el Prototipo 2, copiar la estructura de la sección 1.
+% =====================================================================
+\chapter{Prototipos}
+\label{cap:prototipos}
+
+\section{Prototipo 1: Sistema base en sitio}
+\label{sec:prototipo1}
+
+\subsection{Introducción}
+
+El Prototipo~1 constituye la base funcional de \saru{}: implementa la
+cadena completa desde la cámara hasta el registro y el aviso, sobre la que
+se construirán los prototipos siguientes. Resulta de la fusión, el 3 de
+noviembre de 2026, de dos versiones previas del sistema (la del repositorio
+y la que corría en la Jetson), seguida de correcciones con video real y de
+su puesta en operación en el patio~\cite{rep-fusion,rep-envivo}. Establece
+la arquitectura en capas, el esquema de la base de datos, los tres modelos
+en cascada y la lógica de cruce que se reutilizarán en las siguientes
+iteraciones.
+
+\subsection{Objetivo}
+
+Implementar un prototipo funcional que, a partir del video de la cámara de
+la puerta del Patio CCA, detecte cada unidad, lea su número económico,
+determine si entra o sale, registre el movimiento con evidencia y lo
+notifique, y que ofrezca un tablero web para consultar los movimientos y
+las grabaciones.
+
+\subsection{Especificaciones (historias de usuario) del Prototipo 1}
+
+Las historias se escriben desde el punto de vista de cuatro tipos de
+usuario: \textbf{operador del patio}, \textbf{validador},
+\textbf{coordinación} y \textbf{personal técnico}.
+
+\begin{aviso}[title={Por validar}]
+Las historias se derivaron del sistema existente y de los reportes del
+equipo. Deben confirmarse con los usuarios reales del patio.
+\end{aviso}
+
+\historiaUsuario{HU-01}{Consultar unidades dentro}
+  {Como operador del patio, quiero ver qué unidades están dentro y desde
+   cuándo, para saber de qué unidades dispongo.}
+  {Alta}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item El tablero muestra las unidades con estancia abierta y los
+           minutos que llevan dentro.
+     \item La lista se actualiza sin recargar la página.
+   \end{itemize}}
+
+\historiaUsuario{HU-02}{Ver video en vivo}
+  {Como operador del patio, quiero ver el video de la puerta en vivo, para
+   comprobar lo que la cámara está viendo.}
+  {Alta}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item El video se muestra a 10~cuadros por segundo y 960~px de ancho.
+     \item Si se pierde la cámara, el tablero indica ``Sin señal''.
+   \end{itemize}}
+
+\historiaUsuario{HU-03}{Consultar cruces}
+  {Como operador del patio, quiero consultar los cruces registrados y
+   buscarlos por número, empresa o fecha, para revisar un movimiento
+   concreto.}
+  {Alta}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item La lista muestra número, empresa, dirección, zona, hora y foto.
+     \item Permite buscar por número o empresa y filtrar por fechas.
+     \item Muestra 10 cruces por página, con navegación entre páginas.
+   \end{itemize}}
+
+\historiaUsuario{HU-04}{Recibir aviso de cruce}
+  {Como operador del patio, quiero recibir un aviso con fotos cada vez que
+   una unidad entra o sale, para enterarme sin estar frente al tablero.}
+  {Alta}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item El aviso indica número, dirección, tipo y empresa.
+     \item Incluye hasta 3 fotos de momentos distintos, separadas al menos
+           1~segundo.
+     \item Se envía por Telegram y, si está configurado, por WhatsApp.
+   \end{itemize}}
+
+\historiaUsuario{HU-05}{Validar una lectura dudosa}
+  {Como validador, quiero confirmar o corregir el número de un cruce
+   dudoso desde el aviso, para que el registro quede correcto.}
+  {Media}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item El aviso incluye botones para confirmar o corregir.
+     \item Solo los usuarios autorizados pueden validar.
+     \item Antes del aviso, Gemini puede revisar la foto si está activado.
+   \end{itemize}}
+
+\historiaUsuario{HU-06}{Registrar cada cruce una sola vez}
+  {Como coordinación, quiero que cada paso de una unidad genere un solo
+   registro con el número correcto, para que los conteos sean confiables.}
+  {Alta}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item Un cruce se registra cuando la unidad termina de pasar, con el
+           número más leído y las mejores fotos.
+     \item Una unidad detenida sobre la línea no genera registros.
+     \item Una maniobra (regreso antes de 20~s) no genera registro.
+     \item El mismo número no se registra dos veces en menos de 60~s.
+     \item Con varias unidades a la vez, cada una lleva su propio cruce.
+   \end{itemize}}
+
+\historiaUsuario{HU-07}{Registrar números fuera del padrón}
+  {Como coordinación, quiero que un número leído de forma consistente se
+   registre aunque no esté en el padrón, para no perder movimientos ni
+   inventar unidades.}
+  {Media}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item Con 4 lecturas iguales, el número se registra tal cual, marcado
+           como fuera del padrón.
+     \item No se corrige a un número parecido del padrón.
+     \item El tablero permite consultar los números fuera del padrón.
+   \end{itemize}}
+
+\historiaUsuario{HU-08}{Consultar estancias y trayectoria}
+  {Como coordinación, quiero consultar las estancias y el recorrido de una
+   unidad, para conocer cuánto tiempo permanece en el patio.}
+  {Media}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item Cada estancia muestra hora de entrada, hora de salida y
+           duración en minutos.
+     \item El día operativo empieza a las 3:00~a.m.
+     \item Se muestra el promedio, mínimo y máximo de estancia por
+           empresa.
+   \end{itemize}}
+
+\historiaUsuario{HU-09}{Consultar grabaciones}
+  {Como coordinación, quiero reproducir el video de una hora concreta,
+   para revisar un cruce cuestionado.}
+  {Alta}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item Hay un archivo por hora de las últimas 72~horas.
+     \item El tablero lista las grabaciones por cámara y permite
+           reproducirlas.
+     \item La grabación continúa aunque falle la detección.
+   \end{itemize}}
+
+\historiaUsuario{HU-10}{Revisar el estado del sistema}
+  {Como personal técnico, quiero conocer el estado del sistema, para
+   detectar fallas sin entrar a la Jetson.}
+  {Alta}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item Una ruta de salud informa conexión de la cámara, cuadros por
+           segundo y contadores.
+     \item Si la cámara se desconecta, el sistema intenta reconectarse cada
+           2~segundos.
+   \end{itemize}}
+
+\historiaUsuario{HU-11}{Probar con video grabado}
+  {Como personal técnico, quiero ejecutar el sistema con un video en lugar
+   de la cámara, para probar cambios sin afectar la operación.}
+  {Media}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item Con un archivo de video como fuente, el sistema funciona igual
+           que con la cámara.
+     \item El tablero permite avanzar, retroceder y saltar entre videos.
+     \item Los avisos pueden desactivarse durante las pruebas.
+   \end{itemize}}
+
+\historiaUsuario{HU-12}{Actualizar el padrón}
+  {Como personal técnico, quiero dar de alta o de baja unidades editando un
+   archivo, para mantener el padrón al día sin tocar la base de datos.}
+  {Media}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item El padrón se lee de un archivo CSV en cada arranque.
+     \item Si una fila es inválida, el sistema no arranca e indica la
+           línea con el error.
+   \end{itemize}}
+
+\historiaUsuario{HU-13}{Reunir recortes para entrenamiento}
+  {Como personal técnico, quiero que el sistema guarde recortes de las
+   unidades, para ampliar los datos con que se entrenan los modelos.}
+  {Media}
+  {\begin{itemize}[nosep,leftmargin=*]
+     \item Se guarda un recorte por unidad cada cierto número de segundos.
+     \item El tablero muestra estadísticas de los recortes guardados.
+   \end{itemize}}
+
+\subsection{Arquitectura del Prototipo 1}
+
+El Prototipo~1 aplica la arquitectura en capas del
+capítulo~\ref{cap:bosquejo}. Un solo proceso de Python
+(\texttt{cisa-vision}) arranca la cámara, lanza dos hilos de visión y el
+servidor web. La cámara publica el cuadro más reciente, del que leen la
+detección, el video en vivo y las capturas. El primer hilo ejecuta M1 y el
+seguimiento; el segundo, M2 y M3 sobre los recortes. Cuando un número
+confirmado cruza la línea, el sistema espera a que la unidad termine de
+pasar, valida, registra y avisa. La grabación lee la cámara por separado.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}
+    \node[caja] (cam)   at (0,0)    {Cámara\\RTSP};
+    \node[caja] (m1)    at (3.8,0)  {M1\\YOLO + ByteTrack};
+    \node[caja] (m23)   at (7.6,0)  {M2 + M3\\zona y dígitos};
+    \node[caja] (voto)  at (11.2,0) {Votación\\lecturas iguales};
+    \node[caja] (linea) at (11.2,-2.1) {Línea virtual\\entrada / salida};
+    \node[caja] (valid) at (7.6,-2.1)  {Validación\\Gemini + Telegram};
+    \node[caja] (reg)   at (3.8,-2.1)  {Registro\\SQLite};
+    \node[caja] (web)   at (0,-2.1)    {Tablero web\\MJPEG + consultas};
+    \node[cajaGris] (grab)   at (0,-4.2)   {Grabación\\lee la cámara};
+    \node[cajaGris] (avisos) at (3.8,-4.2) {Avisos\\Telegram / WhatsApp};
+    \draw[flecha] (cam) -- (m1);
+    \draw[flecha] (m1) -- node[etiqueta,above]{recortes} (m23);
+    \draw[flecha] (m23) -- node[etiqueta,above]{número} (voto);
+    \draw[flecha] (voto) -- (linea);
+    \draw[flecha] (linea) -- node[etiqueta,above]{cruce} (valid);
+    \draw[flecha] (valid) -- (reg);
+    \draw[flecha] (reg) -- (web);
+    \draw[flecha] (reg) -- (avisos);
+    \draw[flechaGris] (cam.west) -- ++(-0.6,0) |- (grab.west);
+    \begin{scope}[on background layer]
+      \node[draw=azulCISA, dashed, rounded corners=4pt,
+            fit=(m1)(m23)(voto)(linea)(valid)(reg), inner sep=0.3cm,
+            label={[font=\scriptsize\bfseries,text=azulCISA]above:%
+                   {cisa-vision (un proceso, dos hilos)}}] {};
+    \end{scope}
+  \end{tikzpicture}%
+  }
+  \caption{Arquitectura del Prototipo 1: flujo de una unidad desde la
+           cámara hasta el registro.}
+  \label{fig:arq-p1}
+\end{figure}
+
+\subsection{Componentes del Prototipo 1}
+
+\begin{longtable}{@{}L{4.4cm}L{2.8cm}L{6.8cm}@{}}
+  \caption{Componentes del Prototipo 1.}
+  \label{tab:componentes-p1} \\
+  \toprule
+  \textbf{Componente} & \textbf{Capa} & \textbf{Responsabilidad} \\
+  \midrule
+  \endfirsthead
+  \caption[]{Componentes del Prototipo 1 (continuación).} \\
+  \toprule
+  \textbf{Componente} & \textbf{Capa} & \textbf{Responsabilidad} \\
+  \midrule
+  \endhead
+  \path{config.py} & Configuración & Único lector de la configuración;
+    valida variables, modelos, carpetas y padrón al arrancar. \\
+  \path{pipe_stream_v2.py} & Arranque & Crea la cámara, lanza los hilos y
+    el servidor web. \\
+  \path{logica/camara.py} & Visión & Lectura RTSP, respaldo con FFmpeg,
+    reconexión y modo prueba. \\
+  \path{logica/estado.py} & Visión & Cuadro más reciente y estado
+    compartido del sistema. \\
+  \path{ml/modelos.py} & Visión & Carga y calentamiento de los motores
+    TensorRT. \\
+  \path{ml/hilos.py} & Visión & Hilo de detección (M1) e hilo de lectura
+    (M2 y M3); registro único por cruce. \\
+  \path{ml/reconocimiento.py} & Visión & Recortes, lectura de dígitos,
+    validación del número y guardado de recortes. \\
+  \path{ml/linea_virtual.py} & Visión & Lado de la línea, margen,
+    maniobras y evaluación del cruce. \\
+  \path{metricas/schema.sql} & Datos & Tablas, índices y vistas. \\
+  \path{metricas/storage.py} & Datos & Único acceso a la base;
+    sincronización del padrón, altas y consultas. \\
+  \path{avisos/telegram.py} & Servicios externos & Avisos y validación
+    por Telegram. \\
+  \path{avisos/gemini.py} & Servicios externos & Revisión automática de
+    la foto. \\
+  \path{avisos/whatsapp.py}, \path{whatsapp/} & Servicios externos &
+    Puente hacia WhatsApp Web (Node.js y Baileys). \\
+  \path{web/rutas.py} & Presentación & Rutas del tablero, API, video y
+    archivos. \\
+  \path{templates/}, \path{static/} & Presentación & Páginas, estilos y
+    JavaScript del tablero. \\
+  \path{scripts/grabar.sh} & Datos & Grabación continua y rotación de
+    archivos. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{Diseño de la interfaz del Prototipo 1}
+
+La interfaz del Prototipo~1 tiene tres páginas: el tablero principal, el
+video en vivo con la lista de cruces y la consulta de grabaciones. Además,
+los avisos llegan a Telegram y WhatsApp.
+
+\figuraPendiente{06\_prototipos/p1-tablero.png}
+  {Tablero principal: indicadores, gráficas y unidades dentro}
+  {fig:p1-tablero}
+
+\figuraPendiente{06\_prototipos/p1-livevideo.png}
+  {Video en vivo y lista paginada de cruces}
+  {fig:p1-livevideo}
+
+\figuraPendiente{06\_prototipos/p1-grabaciones.png}
+  {Consulta y reproducción de grabaciones por hora}
+  {fig:p1-grabaciones}
+
+\figuraPendiente{06\_prototipos/p1-aviso.png}
+  {Aviso de cruce en Telegram con fotos y botones de validación}
+  {fig:p1-aviso}
+
+\subsection{Desarrollo del Prototipo 1}
+
+El Prototipo~1 se consolidó entre el 3 y el 12 de noviembre de 2026. La
+tabla~\ref{tab:desarrollo-p1} resume los cambios principales según los
+reportes del equipo.
+
+\begin{longtable}{@{}L{2.2cm}L{11.8cm}@{}}
+  \caption{Cronología del desarrollo del Prototipo 1.}
+  \label{tab:desarrollo-p1} \\
+  \toprule
+  \textbf{Fecha} & \textbf{Cambio} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Fecha} & \textbf{Cambio} \\
+  \midrule
+  \endhead
+  3 nov & Fusión de las dos versiones previas: varias unidades a la vez y
+    topes de procesamiento (repositorio) con margen de línea, espera de
+    25~s, avisos por WhatsApp y padrón de 396 unidades (Jetson). La versión
+    fusionada pasa 16 de 16 pruebas del simulador, y la detección sube de
+    13.4 a 22.1 cuadros por segundo en modo de 40~W~\cite{rep-fusion}. \\
+  4 nov & Correcciones con video real: tres fallas que impedían registrar
+    unidades bien leídas; los números fuera del padrón ahora se registran y
+    se muestran en el tablero. \\
+  5--9 nov & Sistema en vivo en el patio: tres días sin fallas. Los avisos
+    de Telegram no salen porque la red del patio bloquea el servicio; se
+    preparó la solicitud para habilitarlo~\cite{rep-envivo}. \\
+  9--10 nov & Panel de cruces en la página de video en vivo, con búsqueda,
+    filtros y paginación de 10. \\
+  10 nov & Incidente: avisos de WhatsApp que llegan sin poder leerse en el
+    teléfono destinatario~\cite{rep-whatsapp}. \\
+  11 nov & Hasta 3 fotos por aviso; visor de fotos; videos de prueba del
+    más reciente al más antiguo. \\
+  12 nov & Línea virtual de varios puntos que termina en sus extremos y
+    compara la base del recuadro de la unidad. Probada en simulación;
+    pendiente con video real. Solo en el paquete
+    \texttt{SARU\_V4}~\cite{rep-tecnico}. \\
+  \bottomrule
+\end{longtable}
+
+\begin{aviso}[title={Versiones del código}]
+Existen al menos tres versiones del Prototipo~1: la del repositorio, el
+paquete \texttt{SARU\_V4} (con la línea de varios puntos) y la copia de la
+Jetson. Este documento describe la del repositorio salvo que se indique lo
+contrario. Definir una sola fuente de verdad es parte del trabajo a futuro
+(capítulo~\ref{cap:futuro}).
+\end{aviso}
+
+\figuraPendiente{06\_prototipos/p1-secuencia-cruce.png}
+  {Diagrama de secuencia del registro de un cruce: detección, lectura,
+   votación, cruce, espera, validación, registro y aviso}
+  {fig:p1-secuencia}
+
+\subsection{Protocolo de pruebas del Prototipo 1}
+\label{sec:pruebas-p1}
+
+Cada caso de prueba se identifica con una sigla de módulo y un número
+consecutivo; por ejemplo, \texttt{LVC-01} es el primer caso de las pruebas
+de línea virtual y cruce. La columna \textbf{Aprobado} indica
+\textbf{Sí}, \textbf{No} o \textbf{Pendiente} (sin evidencia todavía). La
+evidencia de cada caso se reúne en el apéndice~\ref{cap:evidencias-p1}.
+
+\begin{longtable}{@{}L{1.4cm}L{4.0cm}L{8.6cm}@{}}
+  \caption{Nomenclatura de las pruebas del Prototipo 1.}
+  \label{tab:nomenclatura-p1} \\
+  \toprule
+  \textbf{Sigla} & \textbf{Módulo} & \textbf{Qué verifica} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Sigla} & \textbf{Módulo} & \textbf{Qué verifica} \\
+  \midrule
+  \endhead
+  ADQ & Adquisición de video & Conexión, reconexión y modo prueba. \\
+  DLN & Detección y lectura & Detección de unidades, lectura y
+    confirmación del número. \\
+  LVC & Línea virtual y cruce & Dirección del cruce, margen, maniobras,
+    varias unidades y registro único. \\
+  REG & Registro & Eventos, estancias, padrón y números fuera del padrón. \\
+  AVS & Avisos y validación & Entrega de avisos y validación. \\
+  WEB & Tablero web & Páginas, consultas y video en vivo. \\
+  GRB & Grabación & Archivos por hora, rotación y consulta. \\
+  REN & Rendimiento & Cuadros por segundo, consumo y estabilidad. \\
+  \bottomrule
+\end{longtable}
+
+\subsubsection{Módulo de línea virtual y cruce (LVC)}
+
+\textbf{Objetivo:} verificar que el sistema registra una sola entrada o
+salida por cada paso real, y ninguna cuando la unidad se detiene, maniobra
+o rodea la línea.
+
+\textbf{Componentes que se prueban:} \path{ml/linea_virtual.py} y el
+registro único de \path{ml/hilos.py}.
+
+\textbf{Entorno:} simulador del equipo que reproduce cruces con reloj y
+modelos falsos~\cite{rep-fusion,rep-tecnico}. No incluye los modelos YOLO
+ni video real. El simulador no está en el repositorio.
+
+{\small
+\begin{longtable}{@{}L{1.3cm}L{4.3cm}L{3.8cm}C{1.4cm}L{3.2cm}@{}}
+  \caption{Cobertura de pruebas del módulo LVC.}
+  \label{tab:lvc} \\
+  \toprule
+  \textbf{ID} & \textbf{Caso} & \textbf{Resultado esperado} &
+    \textbf{Aprobado} & \textbf{Observaciones} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Caso} & \textbf{Resultado esperado} &
+    \textbf{Aprobado} & \textbf{Observaciones} \\
+  \midrule
+  \endhead
+  LVC-01 & Una unidad entra. & Una entrada. & Sí & Simulador. \\
+  LVC-02 & Una unidad sale. & Una salida. & Sí & Simulador. \\
+  LVC-03 & Paso rápido (2~s) y lento (40~s). & Un registro en cada caso. &
+    Sí & Simulador. \\
+  LVC-04 & La unidad regresa a los 5~s. & Maniobra, sin registro. & Sí &
+    Simulador. \\
+  LVC-05 & La unidad regresa a los 15~s. & Maniobra, sin registro. & Sí &
+    Fallaba en las versiones previas. \\
+  LVC-06 & Unidad detenida sobre la línea con temblor. & Sin registro. & Sí
+    & 20 de 20 corridas. \\
+  LVC-07 & Unidad detenida con vaivén lento. & Sin registro. & Sí & 20 de
+    20 corridas. \\
+  LVC-08 & Dos unidades lado a lado. & Un registro por unidad. & Sí &
+    Fallaba en la versión de la Jetson. \\
+  LVC-09 & Una unidad estacionada y otra entra. & Solo la entrada de la
+    segunda. & Sí & Simulador. \\
+  LVC-10 & Tres unidades a la vista, solo una cruza. & Un solo registro. &
+    Sí & Simulador. \\
+  LVC-11 & Una entra y otra sale a la vez. & Una entrada y una salida. & Sí
+    & Simulador. \\
+  LVC-12 & La unidad rodea la línea por un extremo. & Sin registro. & Sí &
+    Solo línea de varios puntos (\texttt{SARU\_V4}). \\
+  LVC-13 & Entrada y salida con la línea de varios puntos y video real. &
+    Un registro por paso. & Pendiente & Validar en la Jetson. \\
+  \bottomrule
+\end{longtable}
+}
+
+\subsubsection{Módulos de registro, avisos y rendimiento (REG, AVS, REN)}
+
+\textbf{Objetivo:} verificar que los cruces quedan registrados, que los
+avisos llegan y que el sistema opera de forma estable en la Jetson.
+
+{\small
+\begin{longtable}{@{}L{1.3cm}L{4.3cm}L{3.8cm}C{1.4cm}L{3.2cm}@{}}
+  \caption{Cobertura de pruebas de los módulos REG, AVS y REN.}
+  \label{tab:reg-avs-ren} \\
+  \toprule
+  \textbf{ID} & \textbf{Caso} & \textbf{Resultado esperado} &
+    \textbf{Aprobado} & \textbf{Observaciones} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Caso} & \textbf{Resultado esperado} &
+    \textbf{Aprobado} & \textbf{Observaciones} \\
+  \midrule
+  \endhead
+  REG-01 & Unidad fuera del padrón leída de forma consistente. & Se
+    registra con su número y aparece en el tablero. & Sí & Video real,
+    4~nov. \\
+  REG-02 & Memoria tras 300 unidades. & Ningún estado sin uso. & Sí &
+    Simulador: 0 registros sin uso. \\
+  REG-03 & Entrada y salida de la misma unidad. & Estancia abierta y luego
+    cerrada con su duración. & Pendiente & --- \\
+  AVS-01 & Aviso por Telegram desde la red del patio. & El aviso llega al
+    grupo. & No & La red del patio bloquea Telegram~\cite{rep-envivo}. \\
+  AVS-02 & Aviso por WhatsApp al destinatario principal. & El mensaje
+    llega y se puede leer. & No & Mensajes ilegibles el
+    10~nov~\cite{rep-whatsapp}. \\
+  AVS-03 & Aviso por WhatsApp a otro número. & El mensaje llega y se puede
+    leer. & Sí & Prueba de aislamiento del incidente. \\
+  REN-01 & Detección en modo de 40~W. & Más de 20~cuadros por segundo. &
+    Sí & 22.1~cuadros por segundo~\cite{rep-fusion}. \\
+  REN-02 & Operación continua en el patio. & Sin fallas durante varios
+    días. & Sí & 3 días; carga y temperatura normales~\cite{rep-envivo}. \\
+  REN-03 & Consumo en modo de 25~W. & Bajo consumo. & Sí & 11~W sin unidad;
+    14 a 19~W con unidad~\cite{rep-tecnico}. \\
+  \bottomrule
+\end{longtable}
+}
+
+\subsubsection{Módulos pendientes de prueba (ADQ, DLN, WEB, GRB)}
+
+{\small
+\begin{longtable}{@{}L{1.3cm}L{4.3cm}L{3.8cm}C{1.4cm}L{3.2cm}@{}}
+  \caption{Cobertura de pruebas de los módulos ADQ, DLN, WEB y GRB.}
+  \label{tab:adq-dln-web-grb} \\
+  \toprule
+  \textbf{ID} & \textbf{Caso} & \textbf{Resultado esperado} &
+    \textbf{Aprobado} & \textbf{Observaciones} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Caso} & \textbf{Resultado esperado} &
+    \textbf{Aprobado} & \textbf{Observaciones} \\
+  \midrule
+  \endhead
+  ADQ-01 & Se desconecta la cámara. & El sistema reintenta cada 2~s y se
+    recupera solo. & Pendiente & Implementado en el código. \\
+  ADQ-02 & Fuente de video de prueba. & Funciona igual que la cámara. &
+    Pendiente & --- \\
+  DLN-01 & Lectura con vista lateral. & Número confirmado correcto. &
+    Pendiente & Falta medir la exactitud. \\
+  DLN-02 & Lectura con vista delantera o trasera. & Número confirmado
+    correcto. & No & Según pruebas del equipo, M2 casi solo encuentra la
+    zona con vista lateral. \\
+  WEB-01 & Búsqueda y paginación de cruces. & Resultados filtrados, 10 por
+    página. & Pendiente & --- \\
+  WEB-02 & Video en vivo. & 10~cuadros por segundo, 960~px de ancho. &
+    Pendiente & --- \\
+  GRB-01 & Grabación de 72~h. & Un archivo por hora; se borran los de más
+    de 72~h. & Pendiente & --- \\
+  GRB-02 & Falla la detección. & La grabación continúa. & Pendiente &
+    --- \\
+  \bottomrule
+\end{longtable}
+}
+
+\subsection{Conclusiones del Prototipo 1}
+
+El Prototipo~1 cumple la cadena completa de detección, lectura, cruce,
+registro, avisos, tablero y grabación, y opera en vivo en el patio. La
+lógica de cruce es el módulo con más evidencia: pasa todos los casos del
+simulador, incluidos los de varias unidades a la vez que fallaban en las
+versiones previas. Los puntos débiles son la \textbf{entrega de avisos},
+que hoy falla por la red del patio y por el incidente de WhatsApp, y la
+\textbf{lectura en vistas no laterales}. Además, falta evidencia formal de
+los módulos de adquisición, tablero y grabación, y medir la exactitud de la
+lectura con una muestra revisada contra el video.

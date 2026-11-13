@@ -1,4 +1,4 @@
-# Configuración de latexmk para la documentación de CISA.
+# Configuración de latexmk para la documentación de SARU.
 # Los archivos intermedios (.aux, .log, .toc, .bbl ...) se generan en build/
 # para no ensuciar la carpeta del proyecto.
 

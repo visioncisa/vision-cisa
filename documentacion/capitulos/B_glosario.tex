@@ -1,0 +1,101 @@
+% =====================================================================
+%  B_glosario.tex — Glosario del dominio de SARU
+%  Reglas: un término por concepto; definición de una o dos frases (qué
+%  ES, no cómo se programa); sinónimos a evitar en "Evitar". Sin nombres
+%  de variables ni detalles de implementación.
+%  Versión 0.1 (borrador para revisión del equipo).
+% =====================================================================
+\chapter{Glosario}
+\label{cap:glosario}
+
+En los reportes y en el código, un mismo concepto aparece con nombres
+distintos; por ejemplo, el ``panel de detecciones'' del tablero lista
+cruces registrados. Este glosario fija
+\textbf{un término por concepto}. Si un documento, una pantalla o el código
+usan otra palabra para lo mismo, se corrige el otro, no el glosario. Debajo
+de cada término, \emph{Evitar} lista las palabras que causan confusión.
+
+\section{Proyecto}
+
+\begin{description}[style=nextline]
+  \item[SARU] Sistema Automatizado de Reconocimiento de Unidades: el
+        proyecto y el sistema que registra las unidades en la puerta del
+        Patio CCA. \textbf{Por definir} si el nombre oficial es SARU o
+        SARU-CISA.\\
+        \emph{Evitar:} CISA, VisionCISA, ``el sistema de visión''.
+  \item[Grupo CISA] Organización responsable del proyecto.\\
+        \emph{Evitar:} CISA a secas para referirse al sistema.
+  \item[Patio CCA] Patio del Metrobús donde opera \saru{}.
+  \item[Puerta] Acceso del patio vigilado por una cámara.
+\end{description}
+
+\section{Unidades}
+
+\begin{description}[style=nextline]
+  \item[Unidad] Autobús del Metrobús que entra o sale del patio.\\
+        \emph{Evitar:} camión, bus, autobús (en texto técnico).
+  \item[Número económico] Número pintado en la unidad que la identifica.\\
+        \emph{Evitar:} placa, ID, número de unidad.
+  \item[Padrón] Lista oficial de unidades válidas, con su empresa y su
+        tipo.\\
+        \emph{Evitar:} catálogo, base de unidades.
+  \item[Fuera del padrón] Estado de un número económico leído de forma
+        consistente que no aparece en el padrón.\\
+        \emph{Evitar:} no registrado, desconocido, error de lectura.
+  \item[Empresa operadora] Empresa a la que pertenece una unidad.
+\end{description}
+
+\section{Movimiento}
+
+\begin{description}[style=nextline]
+  \item[Línea virtual] Trazo sobre la imagen de la cámara que separa el
+        exterior del interior del patio.\\
+        \emph{Evitar:} umbral, línea de conteo.
+  \item[Cruce] Paso confirmado de una unidad a través de la línea virtual,
+        con dirección de \textbf{entrada} o de \textbf{salida}.\\
+        \emph{Evitar:} detección, evento, paso, movimiento.
+  \item[Maniobra] Acercamiento de una unidad a la línea virtual seguido de
+        un regreso, sin completar el cruce.\\
+        \emph{Evitar:} falso cruce.
+  \item[Estancia] Tiempo que una unidad pasa dentro del patio, desde su
+        entrada hasta su salida.\\
+        \emph{Evitar:} visita, permanencia.
+  \item[Día operativo] Jornada del patio que empieza a las 3:00~a.m. y
+        termina a las 2:59~a.m. del día siguiente.\\
+        \emph{Evitar:} día (a secas) al hablar de conteos.
+\end{description}
+
+\section{Lectura}
+
+\begin{description}[style=nextline]
+  \item[Detección] Hallazgo de una unidad en un cuadro de video.\\
+        \emph{Evitar:} usarla para referirse a un cruce registrado (el
+        ``panel de detecciones'' del tablero lista cruces).
+  \item[Zona] Parte de la unidad donde está pintado el número económico:
+        delantera, lateral o trasera.\\
+        \emph{Evitar:} vista, región.
+  \item[Lectura] Número que el sistema obtiene de una zona en un solo
+        cuadro.
+  \item[Número confirmado] Número económico respaldado por varias lecturas
+        iguales de la misma unidad.\\
+        \emph{Evitar:} número detectado.
+  \item[M1, M2, M3] Los tres modelos de visión, en cadena: M1 detecta
+        unidades, M2 localiza la zona y M3 lee los dígitos.
+  \item[Recorte] Imagen de una unidad o de una zona, extraída de un cuadro
+        para revisión o entrenamiento.\\
+        \emph{Evitar:} crop (en texto en español).
+\end{description}
+
+\section{Avisos y evidencia}
+
+\begin{description}[style=nextline]
+  \item[Aviso] Mensaje con fotos y datos de un cruce, enviado por Telegram
+        o WhatsApp.\\
+        \emph{Evitar:} alerta, notificación.
+  \item[Validación] Revisión de un cruce, por Gemini o por un validador,
+        antes de darlo por bueno.
+  \item[Validador] Persona autorizada para confirmar o corregir una lectura
+        dudosa.
+  \item[Grabación] Video continuo de la cámara de la puerta, guardado en
+        archivos de una hora durante 72~horas.
+\end{description}

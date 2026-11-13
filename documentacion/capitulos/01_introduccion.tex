@@ -1,107 +1,132 @@
 % =====================================================================
-%  01_introduccion.tex — Qué es CISA, para qué sirve y qué NO hace
+%  01_introduccion.tex — Introducción, problemática, propuesta de
+%  solución, objetivos y justificación.
 % =====================================================================
 \chapter{Introducción}
 \label{cap:introduccion}
 
-\section{Qué es CISA}
+El Metrobús de la Ciudad de México opera con unidades que, al terminar o
+iniciar su servicio, entran y salen de patios de encierro. Saber qué
+unidades están dentro de un patio, desde cuándo y cuántas veces entraron o
+salieron en un día es información básica para la operación: permite
+planear la salida de unidades, detectar estancias anómalas y respaldar los
+registros ante una disputa entre las partes.
 
-\cisa{} es el sistema de control de acceso de unidades que corre en una
-computadora NVIDIA Jetson Orin instalada junto a la puerta del patio. Usa una
-cámara de video para \textbf{detectar cada autobús}, \textbf{leer su número
-económico}, decidir si \textbf{entra o sale} del patio y \textbf{guardar el
-movimiento}. Un tablero web muestra el video en vivo, las detecciones y qué
-unidades están adentro en este momento.
+En el Patio CCA este control se hacía de forma manual. El proyecto
+\saru{} (\emph{Sistema Automatizado de Reconocimiento de Unidades}),
+impulsado por Grupo CISA, busca automatizarlo con visión artificial: una
+cámara en la puerta del patio, una computadora de borde que procesa el
+video en tiempo real y un tablero web que muestra los movimientos al
+momento en que ocurren~\cite{act1}.
 
-El sistema no necesita que nadie capture datos a mano: la cámara es la única
-fuente de información. La operación diaria se reduce a revisar el tablero y,
-cuando el sistema tiene duda sobre una lectura, confirmarla por Telegram.
+\section{Problemática}
+\label{sec:problematica}
 
-\section{El problema que resuelve}
-
-Antes, el registro de entradas y salidas dependía de que una persona anotara
-cada unidad. Eso produce tres problemas:
+El registro manual de entradas y salidas depende de que una persona anote
+cada unidad que cruza la puerta. Esa dependencia genera tres problemas:
 
 \begin{itemize}
-  \item \textbf{Se pierden movimientos}, sobre todo en horas pico o cuando hay
-        varias unidades cruzando al mismo tiempo.
-  \item \textbf{Los tiempos no son confiables}: la hora de entrada y de salida
-        se anota tarde, o se redondea.
-  \item \textbf{No hay evidencia}: si alguien cuestiona un registro, no existe
+  \item \textbf{Movimientos perdidos}, sobre todo en horas pico o cuando
+        varias unidades cruzan al mismo tiempo.
+  \item \textbf{Horas poco confiables}: la hora se anota tarde o se
+        redondea, lo que altera el cálculo del tiempo que cada unidad
+        permanece en el patio.
+  \item \textbf{Falta de evidencia}: cuando un registro se cuestiona, no hay
         foto ni video que lo respalde.
 \end{itemize}
 
-\cisa{} ataca los tres: registra solo (con un evento por cruce), sella la hora
-del servidor y guarda las fotos del aviso, además de 72 horas de video
-continuo.
+Automatizar el registro tiene sus propias dificultades. El número
+económico está pintado en distintas zonas de la unidad (frente, costado o
+parte trasera) y la cámara no siempre lo ve completo; las unidades pueden
+detenerse sobre la puerta, maniobrar o cruzar varias a la vez; y la red del
+patio restringe la comunicación con servicios externos~\cite{rep-envivo}.
+Un sistema útil debe resolver estos casos sin intervención humana
+constante y con un costo de operación bajo.
 
-\section{Qué hace el sistema}
+\begin{aviso}[title={Por validar}]
+Falta cuantificar el problema con datos del patio: cuántas unidades cruzan
+por día, cuántos movimientos se perdían con el registro manual y quién
+consume hoy esa información.
+\end{aviso}
+
+\section{Propuesta de solución}
+\label{sec:propuesta}
+
+Se propone un sistema de visión artificial que corre por completo en una
+computadora NVIDIA Jetson Orin instalada junto a la puerta del patio, sin
+depender de un servidor en la nube. A partir del video de la cámara, el
+sistema:
 
 \begin{enumerate}
-  \item \textbf{Detecta} los autobuses en el video y los sigue cuadro a cuadro.
-  \item \textbf{Lee} el número económico en la zona delantera, lateral o trasera.
-  \item \textbf{Confirma} el número con varias lecturas iguales (votación).
-  \item \textbf{Decide} entrada o salida según el lado de una línea virtual.
-  \item \textbf{Descarta} maniobras (un camión que se acerca, retrocede y se va).
-  \item \textbf{Valida} la foto con Gemini y, si hay duda, pide apoyo humano por
-        Telegram.
-  \item \textbf{Registra} el paso en una base SQLite y calcula la estancia
-        (tiempo dentro del patio).
-  \item \textbf{Publica} todo en un tablero web y manda avisos por Telegram y
-        WhatsApp.
-  \item \textbf{Graba} el video completo de la cámara, un archivo por hora, y
-        conserva las últimas 72 horas.
+  \item \textbf{Detecta} cada unidad con un modelo YOLO (M1) y la sigue
+        cuadro a cuadro con ByteTrack.
+  \item \textbf{Lee} el número económico en dos pasos: un segundo modelo
+        (M2) localiza la zona donde está pintado y un tercero (M3) lee los
+        dígitos. Un número solo se confirma cuando varias lecturas
+        coinciden.
+  \item \textbf{Decide} si la unidad entra o sale cuando su trayectoria
+        atraviesa una línea virtual trazada sobre la imagen, y descarta las
+        maniobras.
+  \item \textbf{Registra} cada cruce y cada estancia en una base de datos
+        SQLite, y compara el número con el padrón oficial de unidades.
+  \item \textbf{Avisa} por Telegram y WhatsApp con hasta tres fotos del
+        cruce; si la lectura es dudosa, la valida un modelo de lenguaje
+        (Gemini) o una persona.
+  \item \textbf{Publica} un tablero web con video en vivo, cruces, unidades
+        dentro y estancias, y \textbf{graba} 72 horas de video continuo como
+        evidencia.
 \end{enumerate}
 
-\section{Alcance de este documento}
+Los tres modelos se ejecutan en la GPU de la Jetson como motores TensorRT,
+y el sistema se despliega en tres contenedores Docker: visión, grabación y
+WhatsApp~\cite{rep-tecnico}.
 
-Este documento describe el sistema tal como está implementado en el repositorio,
-con el detalle suficiente para:
+\section{Objetivos}
+
+\subsection{Objetivo general}
+
+Desarrollar un sistema de visión artificial en el borde que registre de
+forma automática, con evidencia y sin captura manual, cada entrada y salida
+de unidades en la puerta del Patio CCA, y que ponga esa información a
+disposición de los responsables en el momento en que ocurre.
+
+\subsection{Objetivos específicos}
 
 \begin{itemize}
-  \item \textbf{Instalarlo} en una Jetson nueva o reconstruir la imagen Docker.
-  \item \textbf{Operarlo} día a día y resolver las fallas más comunes.
-  \item \textbf{Entenderlo} para modificarlo sin romper la lógica de conteo.
-  \item \textbf{Documentar} los datos: qué se guarda, dónde y con qué reglas.
+  \item Detectar y seguir las unidades que aparecen en el video de la
+        puerta, aunque haya varias a la vez.
+  \item Leer el número económico de cada unidad en sus zonas delantera,
+        lateral o trasera, y confirmarlo con varias lecturas.
+  \item Determinar la dirección de cada cruce (entrada o salida) con una
+        línea virtual, sin contar maniobras ni unidades detenidas.
+  \item Registrar cruces y estancias en una base de datos, respetando el
+        padrón oficial y conservando los números que no están en él.
+  \item Notificar cada cruce con fotos y permitir su validación humana o
+        automática.
+  \item Ofrecer un tablero web para consultar los movimientos y conservar
+        video continuo como evidencia.
+  \item Validar el funcionamiento de cada prototipo con un protocolo de
+        pruebas documentado.
 \end{itemize}
 
-Queda \textbf{fuera de alcance}: el entrenamiento de los modelos de visión (se
-documenta solo su uso), la administración de la red del patio y el
-mantenimiento físico de la cámara.
+\section{Justificación}
 
-\begin{nota}[title={Este documento se actualiza con el código}]
-Si cambias el comportamiento del sistema, actualiza el capítulo
-correspondiente en el mismo \emph{pull request}. La documentación vive en la
-carpeta \path{documentacion/} del repositorio; el flujo de trabajo está en
-\path{documentacion/README.md}.
-\end{nota}
+Un registro automático elimina la dependencia de una persona en la puerta,
+sella la hora con el reloj del sistema y guarda evidencia de cada
+movimiento: fotos del cruce y video continuo de las últimas 72 horas. Con
+ello, las estancias, los tiempos y los conteos diarios del patio pasan a
+ser datos confiables que pueden consultarse en cualquier momento.
 
-\section{Glosario}
+La propuesta procesa todo \textbf{en el borde}. Esto reduce la dependencia
+de la red del patio, que ya bloquea algunos servicios externos, evita
+enviar video a terceros y mantiene un consumo bajo: entre 11 y 19~W según
+haya o no unidades en cuadro~\cite{rep-tecnico}. El uso de tres modelos en
+cascada (unidad, zona del número y dígitos) permite leer números pintados
+en distintas partes de la unidad, algo que un detector único de matrículas
+no resuelve.
 
-Los términos que se usan en todo el documento:
-
-\begin{description}[style=nextline]
-  \item[Unidad] Autobús del patio. Se identifica por su número económico.
-  \item[Número económico] El número pintado en la unidad (por ejemplo
-        \texttt{5038}). Es la llave de todo el sistema.
-  \item[Padrón] Lista oficial de unidades válidas. Su única fuente es
-        \path{padron.csv}.
-  \item[Fuera del padrón] Número que el sistema leyó varias veces igual, pero
-        que no está en \path{padron.csv}. Se registra tal cual, marcado como
-        \emph{no registrado}; no se ``corrige'' a un número parecido.
-  \item[Línea virtual] Segmento imaginario dibujado sobre la imagen de la
-        cámara. Cruzarlo cambia el estado de la unidad.
-  \item[Margen de línea] Franja de píxeles alrededor de la línea virtual donde
-        el lado de la unidad \emph{no} cambia. Evita falsos cruces cuando un
-        camión se detiene justo encima.
-  \item[Cruce] Evento de entrada o salida confirmado.
-  \item[Maniobra] Movimiento de acercarse a la puerta y regresar sin pasar.
-        Se descarta y no genera registro.
-  \item[Estancia] Visita completa de una unidad: desde que entra hasta que sale.
-  \item[Zona] Parte de la unidad donde se leyó el número:
-        \emph{delantera}, \emph{lateral} o \emph{trasera}.
-  \item[Aviso] Mensaje (foto + texto) que se publica en Telegram y WhatsApp
-        cuando hay un cruce o una duda.
-  \item[M1, M2, M3] Los tres modelos de visión: M1 detecta autobuses, M2
-        localiza la zona del número y M3 lee los dígitos.
-\end{description}
+En cuanto a viabilidad, el proyecto ya cuenta con el equipo instalado en el
+patio, modelos entrenados para cada etapa y un sistema que opera en vivo.
+El alcance de este documento comprende el primer prototipo funcional y la
+planeación de los siguientes. El cierre del proyecto está previsto antes
+del 30 de noviembre de 2026~\cite{rep-tecnico}.

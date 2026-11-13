@@ -1,0 +1,57 @@
+% =====================================================================
+%  07_trabajo-futuro.tex — Pendientes y siguientes prototipos
+% =====================================================================
+\chapter{Trabajo a futuro}
+\label{cap:futuro}
+
+Los resultados del Prototipo~1 definen el trabajo de los siguientes
+prototipos. Se agrupa por prototipo según el plan del
+capítulo~\ref{cap:metodologia}.
+
+\section{Prototipo 2: operación continua}
+
+\begin{itemize}
+  \item \textbf{Instalación en el gabinete} del patio con la Jetson de
+        16~GB y fuente propia~\cite{rep-tecnico}.
+  \item \textbf{Arranque automático}: hoy los servicios tienen
+        \texttt{restart: "no"} y el sistema no arranca solo al encender la
+        Jetson~\cite{rep-tecnico}. Debe probarse un reinicio controlado con
+        alguien en sitio.
+  \item \textbf{Entrega de avisos verificada}: dar seguimiento al
+        desbloqueo de Telegram en la red del patio~\cite{rep-envivo},
+        confirmar la solución del incidente de WhatsApp~\cite{rep-whatsapp}
+        y avisar cuando un canal deje de entregar mensajes.
+  \item \textbf{Monitoreo}: avisar cuando la cámara o un servicio dejen de
+        funcionar.
+\end{itemize}
+
+\section{Prototipo 3: mejora de la lectura}
+
+\begin{itemize}
+  \item \textbf{Medir la exactitud} de cada etapa (detección, zona y
+        dígitos) con una muestra de cruces revisada contra la grabación.
+  \item \textbf{Ampliar los datos}: etiquetar los recortes guardados en el
+        patio y versionar el conjunto de datos.
+  \item \textbf{Reentrenar M2} con más ejemplos de vistas delantera y
+        trasera, donde hoy casi no encuentra la zona del número.
+  \item \textbf{Exportar} los nuevos modelos a TensorRT en la propia Jetson
+        y comparar contra la versión anterior.
+\end{itemize}
+
+\section{Pendientes del proyecto}
+
+\begin{itemize}
+  \item \textbf{Una sola fuente de verdad del código}: unificar la versión
+        del repositorio, el paquete \texttt{SARU\_V4} y la copia de la
+        Jetson, y trabajar con ramas y revisión de cambios.
+  \item \textbf{Validar con video real} la línea virtual de varios puntos
+        (LVC-13).
+  \item \textbf{Agregar el simulador al repositorio}, para que las pruebas
+        LVC puedan repetirse en cada cambio.
+  \item \textbf{Corregir la configuración}: rutas de datos por defecto que
+        no coinciden con la Jetson, variables de Telegram exigidas aunque
+        los avisos estén apagados y documentación del repositorio que cita
+        scripts inexistentes~\cite{rep-tecnico}.
+  \item \textbf{Validar las historias de usuario} con el personal del patio
+        y cuantificar la problemática.
+\end{itemize}

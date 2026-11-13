@@ -1,0 +1,58 @@
+% =====================================================================
+%  03_estado-del-arte.tex — Trabajos y soluciones relacionadas
+%  Versión preliminar: completar con más fuentes antes del cierre.
+% =====================================================================
+\chapter{Estado del arte}
+\label{cap:estado}
+
+El problema de \saru{} se relaciona con el \textbf{reconocimiento
+automático de matrículas} (ALPR, por sus siglas en inglés), un campo con
+amplia literatura. La diferencia principal es que \saru{} no lee una placa
+con formato estándar, sino un número económico pintado en distintas zonas
+de la carrocería, y que además debe decidir la dirección del movimiento.
+
+\section{Trabajos relacionados}
+
+\begin{description}[style=nextline]
+  \item[Revisión de métodos de ALPR] Shashirangana et~al. revisan los
+        métodos de reconocimiento de matrículas y los organizan por etapa:
+        detección de la placa, segmentación y reconocimiento de caracteres.
+        Señalan como retos la variación de iluminación, el ángulo de la
+        cámara y la oclusión parcial~\cite{shashirangana2021alpr}.
+  \item[ALPR en tiempo real con YOLO] Laroca et~al. proponen un sistema de
+        reconocimiento de matrículas basado por completo en detectores
+        YOLO, con etapas en cascada para el vehículo, la placa y los
+        caracteres, y muestran que puede operar en tiempo
+        real~\cite{laroca2018yolo}.
+\end{description}
+
+\section{Comparación con \saru{}}
+
+\begin{longtable}{@{}L{3.6cm}L{3.3cm}L{3.3cm}L{3.6cm}@{}}
+  \caption{Comparación entre los trabajos relacionados y \saru{}.}
+  \label{tab:comparacion} \\
+  \toprule
+  \textbf{Característica} & \textbf{ALPR general~\cite{shashirangana2021alpr}}
+    & \textbf{YOLO en cascada~\cite{laroca2018yolo}} & \textbf{\saru{}} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Característica} & \textbf{ALPR general} & \textbf{YOLO en cascada}
+    & \textbf{\saru{}} \\
+  \midrule
+  \endhead
+  Objeto que se lee & Matrícula & Matrícula & Número económico pintado \\
+  Zonas de lectura & Una (placa) & Una (placa) & Delantera, lateral o
+    trasera \\
+  Dirección del movimiento & No aplica & No & Sí (línea virtual) \\
+  Procesamiento & Variable & Por verificar & En el borde (Jetson) \\
+  Evidencia y avisos & No aplica & No & Fotos, video y avisos \\
+  \bottomrule
+\end{longtable}
+
+\begin{nota}[title={Por completar}]
+Esta sección es preliminar. Falta agregar soluciones comerciales de control
+de acceso vehicular, trabajos sobre identificación de autobuses de
+transporte público y conteo de vehículos con líneas virtuales, y revisar
+que la descripción de cada fuente coincida con el artículo original.
+\end{nota}

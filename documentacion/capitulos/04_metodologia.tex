@@ -1,0 +1,90 @@
+% =====================================================================
+%  04_metodologia.tex — Prototipado evolutivo y plan de prototipos
+% =====================================================================
+\chapter{Metodología}
+\label{cap:metodologia}
+
+\section{Prototipado evolutivo}
+
+El desarrollo de \saru{} sigue la metodología de \textbf{prototipado
+evolutivo}: el sistema se construye mediante versiones funcionales
+sucesivas, cada una de las cuales se entrega, se prueba y se usa como base
+de la siguiente~\cite{sommerville2016}. A diferencia del prototipo
+desechable, cada versión no se descarta: se corrige y se amplía.
+
+Esta metodología es adecuada para \saru{} por tres razones:
+
+\begin{itemize}
+  \item \textbf{Los requerimientos cambian con el uso.} Muchos casos solo
+        aparecen con video real del patio: unidades detenidas sobre la
+        línea, varias unidades a la vez o números leídos con dígitos de
+        menos. Cada prototipo en sitio revela casos nuevos.
+  \item \textbf{Los componentes son heterogéneos.} Cámara, modelos de
+        visión, lógica de cruce, base de datos, mensajería y web dependen
+        unos de otros; validarlos juntos en una sola entrega es riesgoso.
+  \item \textbf{El sistema ya opera.} Cada prototipo debe mantener el
+        servicio funcionando mientras se mejora.
+\end{itemize}
+
+\section{Ciclo de cada prototipo}
+
+Cada prototipo recorre las mismas etapas y se documenta con la misma
+estructura en el capítulo~\ref{cap:prototipos}:
+
+\begin{enumerate}
+  \item \textbf{Especificación}: requerimientos que atiende e historias de
+        usuario con sus criterios de aceptación~\cite{cohn2004}.
+  \item \textbf{Diseño}: arquitectura, componentes e interfaz.
+  \item \textbf{Desarrollo}: implementación y despliegue en la Jetson.
+  \item \textbf{Pruebas}: protocolo con casos identificados por módulo y
+        evidencia de cada resultado.
+  \item \textbf{Retroalimentación}: los fallos y los casos nuevos se
+        convierten en requerimientos del siguiente prototipo.
+\end{enumerate}
+
+\section{Plan de prototipos}
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[node distance=0.6cm]
+    \node[caja, minimum width=3.2cm] (p1) {\textbf{Prototipo 1}\\Sistema base\\en sitio};
+    \node[cajaGris, minimum width=3.2cm, right=of p1] (p2) {\textbf{Prototipo 2}\\Operación\\continua};
+    \node[cajaGris, minimum width=3.2cm, right=of p2] (p3) {\textbf{Prototipo 3}\\Mejora de\\la lectura};
+    \node[cajaAlt, minimum width=3.2cm, right=of p3] (pf) {\textbf{Prototipo final}\\Integración\\y validación};
+    \draw[flecha] (p1) -- (p2);
+    \draw[flecha] (p2) -- (p3);
+    \draw[flecha] (p3) -- (pf);
+    \node[etiqueta, below=0.25cm of p1] {Reportado en este documento};
+    \node[etiqueta, below=0.25cm of p2] {Propuesta};
+    \node[etiqueta, below=0.25cm of p3] {Propuesta};
+    \node[etiqueta, below=0.25cm of pf] {Antes del cierre};
+  \end{tikzpicture}%
+  }
+  \caption{Prototipado general del proyecto.}
+  \label{fig:prototipado}
+\end{figure}
+
+\begin{description}[style=nextline]
+  \item[Prototipo 1: sistema base en sitio] La cadena completa de
+        detección, lectura, cruce, registro, avisos, tablero web y
+        grabación continua, operando en vivo en el patio. Es el que reporta
+        este documento (sección~\ref{sec:prototipo1}).
+  \item[Prototipo 2: operación continua] Llevar el sistema a operación
+        permanente en el gabinete del patio con una Jetson de
+        16~GB~\cite{rep-tecnico}: arranque automático, reinicio ante fallas
+        y verificación de que los avisos se entregan.
+  \item[Prototipo 3: mejora de la lectura] Ampliar los datos de
+        entrenamiento con los recortes del patio, reentrenar los modelos
+        donde la lectura falla (por ejemplo, vistas no laterales) y medir
+        la exactitud de cada etapa.
+  \item[Prototipo final: integración y validación] Integrar los cambios de
+        los prototipos anteriores y validar el sistema de extremo a
+        extremo con pruebas en tiempo real, antes del cierre del proyecto.
+\end{description}
+
+\begin{aviso}[title={Por validar}]
+El contenido de los prototipos 2 y 3 es una propuesta basada en los
+pendientes registrados en los reportes del equipo. Debe confirmarse con la
+coordinación del proyecto.
+\end{aviso}

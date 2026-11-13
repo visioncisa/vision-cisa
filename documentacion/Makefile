@@ -1,7 +1,7 @@
 # =====================================================================
 #  documentacion/Makefile — Atajos para compilar el documento
 #  ---------------------------------------------------------------------
-#  make            compila y deja CISA-documentacion.pdf
+#  make            compila y deja SARU-documentacion.pdf
 #  make ver        compila y abre el PDF
 #  make limpio     borra intermedios (conserva el PDF final)
 #  make todo-limpio borra intermedios y el PDF
@@ -10,7 +10,7 @@
 
 LATEXMK ?= latexmk
 MAIN     = main
-PDF      = CISA-documentacion.pdf
+PDF      = SARU-documentacion.pdf
 CAPITULOS = $(wildcard capitulos/*.tex)
 
 .PHONY: all pdf ver limpio todo-limpio palabras

@@ -1,5 +1,5 @@
 % =====================================================================
-%  main.tex — Documento maestro de la documentación de CISA
+%  main.tex — Documento maestro de la documentación de SARU
 %  ---------------------------------------------------------------------
 %  Este archivo SOLO ordena: portada, índices y lista de capítulos.
 %  El texto va en capitulos/*.tex y las imágenes en figuras/<capítulo>/.
@@ -15,8 +15,9 @@
 
 \frontmatter
 
-% ── Portada ──────────────────────────────────────────────────────────
+% ── Portada y resumen ────────────────────────────────────────────────
 \input{capitulos/00_portada}
+\input{capitulos/00_resumen}
 
 % ── Índices ──────────────────────────────────────────────────────────
 \tableofcontents
@@ -27,19 +28,25 @@
 \mainmatter
 
 \input{capitulos/01_introduccion}
-\input{capitulos/02_arquitectura}
-\input{capitulos/03_instalacion}
-\input{capitulos/04_operacion}
-\input{capitulos/05_datos}
-\input{capitulos/06_referencia}
+\input{capitulos/02_marco-teorico}
+\input{capitulos/03_estado-del-arte}
+\input{capitulos/04_metodologia}
+\input{capitulos/05_bosquejo-general}
+\input{capitulos/06_prototipos}
+\input{capitulos/07_trabajo-futuro}
+\input{capitulos/08_conclusiones}
+
+% ── Referencias (antes de los apéndices, sin \backmatter para que los
+%    apéndices conserven su letra) ─────────────────────────────────────
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\bibname}
+\bibliographystyle{plain}
+\bibliography{bibliografia/referencias}
 
 % ── Apéndices ────────────────────────────────────────────────────────
 \appendix
-\input{capitulos/A_checklist}
-
-% ── Bibliografía ─────────────────────────────────────────────────────
-\backmatter
-\bibliographystyle{plain}
-\bibliography{bibliografia/referencias}
+\input{capitulos/A_evidencias-p1}
+\input{capitulos/B_glosario}
 
 \end{document}

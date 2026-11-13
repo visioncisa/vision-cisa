@@ -1,0 +1,23 @@
+% =====================================================================
+%  00_resumen.tex — Resumen del documento (va antes del índice)
+% =====================================================================
+\chapter*{Resumen}
+\addcontentsline{toc}{chapter}{Resumen}
+
+El control de entradas y salidas de las unidades del Metrobús en el Patio
+CCA depende del registro manual, lo que provoca movimientos perdidos, horas
+poco confiables y falta de evidencia cuando un registro se cuestiona. El
+proyecto \saru{} (\emph{Sistema Automatizado de Reconocimiento de
+Unidades}), desarrollado por Grupo CISA, propone un sistema de visión
+artificial que detecta cada unidad en la puerta del patio, lee su número
+económico, decide si entra o sale mediante una línea virtual, registra el
+movimiento y avisa a los responsables. Todo el procesamiento ocurre en el
+borde, en una computadora NVIDIA Jetson Orin, con tres modelos YOLO en
+cascada optimizados con TensorRT.
+
+El desarrollo sigue la metodología de \textbf{prototipado evolutivo}. Este
+documento reporta el \textbf{Prototipo~1}: la cadena completa de
+detección, lectura, cruce, registro, avisos, tablero web y grabación
+continua, que opera en vivo en el patio desde noviembre de 2026. Se
+presentan sus requerimientos, historias de usuario, arquitectura, protocolo
+de pruebas y el trabajo previsto para los siguientes prototipos.

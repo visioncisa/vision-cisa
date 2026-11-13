@@ -1,0 +1,244 @@
+% =====================================================================
+%  05_bosquejo-general.tex — Requerimientos funcionales, arquitectura
+%  general y base de datos.
+% =====================================================================
+\chapter{Bosquejo general}
+\label{cap:bosquejo}
+
+\section{Requerimientos funcionales}
+\label{sec:rf}
+
+Los requerimientos se organizan por módulo. Cada requerimiento principal
+(\texttt{RF-NN}) agrupa requerimientos específicos (\texttt{RF-NN.M}). Los
+valores numéricos corresponden a la configuración actual del
+sistema~\cite{rep-tecnico}.
+
+{\small
+\begin{longtable}{@{}L{1.5cm}L{3.6cm}L{8.9cm}@{}}
+  \caption{Requerimientos funcionales.}
+  \label{tab:rf} \\
+  \toprule
+  \textbf{ID} & \textbf{Nombre} & \textbf{Descripción} \\
+  \midrule
+  \endfirsthead
+  \caption[]{Requerimientos funcionales (continuación).} \\
+  \toprule
+  \textbf{ID} & \textbf{Nombre} & \textbf{Descripción} \\
+  \midrule
+  \endhead
+  \textbf{RF-01} & \textbf{Adquisición de video} & El prototipo leerá de
+    forma continua el video de la cámara de la puerta. \\
+  RF-01.1 & Conexión a la cámara & El prototipo leerá el video por RTSP
+    con decodificación por hardware y, si esta falla, usará FFmpeg. \\
+  RF-01.2 & Reconexión automática & Si se pierde la señal, el prototipo
+    intentará reconectarse cada 2~segundos sin detener los demás
+    servicios. \\
+  RF-01.3 & Modo prueba & El prototipo podrá usar archivos de video en
+    lugar de la cámara, con controles para avanzar, retroceder o saltar
+    entre videos. \\
+  RF-01.4 & Segunda cámara & El prototipo permitirá cambiar a una segunda
+    cámara opcional desde el tablero. \\
+  \midrule
+  \textbf{RF-02} & \textbf{Detección y seguimiento} & El prototipo
+    detectará cada unidad presente en el cuadro y la seguirá mientras
+    permanezca en escena. \\
+  RF-02.1 & Detección de unidades & El prototipo detectará unidades con el
+    modelo M1 y descartará las detecciones con confianza menor a 0.65. \\
+  RF-02.2 & Seguimiento & El prototipo asignará a cada unidad un
+    identificador de seguimiento y llevará por separado el número y el
+    cruce de cada una, aunque haya varias a la vez. \\
+  RF-02.3 & Límite de procesamiento & El prototipo limitará los cuadros
+    por segundo de la detección a un valor configurable para no saturar
+    la GPU. \\
+  \midrule
+  \textbf{RF-03} & \textbf{Lectura del número económico} & El prototipo
+    obtendrá el número económico de cada unidad detectada. \\
+  RF-03.1 & Localización de la zona & El prototipo localizará con el
+    modelo M2 la zona del número (delantera, lateral o trasera) y la
+    asignará a la unidad que la contiene. \\
+  RF-03.2 & Lectura de dígitos & El prototipo leerá los dígitos de la zona
+    con el modelo M3, previa mejora de contraste con CLAHE. \\
+  RF-03.3 & Confirmación & El prototipo confirmará un número con 2 lecturas
+    iguales si está en el padrón, o con 4 si no lo está. \\
+  RF-03.4 & Número más largo & Si un número leído está contenido en otro
+    más largo, el prototipo conservará el más largo. \\
+  RF-03.5 & Topes de lectura & El prototipo hará como máximo 2 lecturas
+    por unidad y 4 por cuadro, y releerá cada 2~segundos una unidad cuyo
+    número ya esté confirmado. \\
+  RF-03.6 & Recortes & El prototipo guardará recortes de las unidades para
+    revisión y para ampliar los datos de entrenamiento. \\
+  \midrule
+  \textbf{RF-04} & \textbf{Determinación de cruces} & El prototipo decidirá
+    si una unidad entra o sale del patio. \\
+  RF-04.1 & Línea virtual & El prototipo comparará la posición de la base
+    del recuadro de la unidad con una línea virtual configurable. \\
+  RF-04.2 & Margen & El prototipo no cambiará el lado de una unidad que se
+    encuentre a menos de 30~px de la línea. \\
+  RF-04.3 & Maniobras & El prototipo descartará el movimiento de una unidad
+    que regrese antes de 20~segundos. \\
+  RF-04.4 & Repetición & El prototipo no registrará el mismo número dos
+    veces en menos de 60~segundos. \\
+  RF-04.5 & Registro único & Tras un cruce, el prototipo esperará a que la
+    unidad termine de pasar (de 2 a 25~segundos) y registrará un solo
+    evento con el mejor número y las mejores fotos. \\
+  \midrule
+  \textbf{RF-05} & \textbf{Registro de movimientos} & El prototipo guardará
+    cada cruce y cada estancia en la base de datos. \\
+  RF-05.1 & Evento de paso & El prototipo registrará la unidad, la
+    dirección, la puerta, la zona leída, la confianza, la foto y la hora
+    de cada cruce. \\
+  RF-05.2 & Estancias & El prototipo abrirá una estancia con cada entrada,
+    la cerrará con la salida correspondiente y calculará su duración. \\
+  RF-05.3 & Padrón & El prototipo sincronizará las unidades válidas desde
+    el archivo del padrón en cada arranque. \\
+  RF-05.4 & Fuera del padrón & El prototipo registrará tal cual los
+    números confirmados que no estén en el padrón, marcados como tales. \\
+  RF-05.5 & Día operativo & El prototipo contará como un mismo día los
+    movimientos entre las 3:00~a.m. y las 2:59~a.m. del día siguiente. \\
+  \midrule
+  \textbf{RF-06} & \textbf{Avisos y validación} & El prototipo notificará
+    cada cruce a los responsables. \\
+  RF-06.1 & Aviso por Telegram & El prototipo enviará al grupo de
+    operación un aviso con la dirección, el tipo, la empresa y hasta 3
+    fotos separadas al menos 1~segundo. \\
+  RF-06.2 & Validación humana & El aviso incluirá botones para que un
+    validador confirme o corrija la lectura. \\
+  RF-06.3 & Validación automática & El prototipo podrá enviar la foto a
+    Gemini para revisar la lectura antes de registrarla. \\
+  RF-06.4 & Aviso por WhatsApp & El prototipo reenviará los mismos avisos
+    a un número de WhatsApp configurado. \\
+  RF-06.5 & Modo sin avisos & El prototipo permitirá desactivar los avisos
+    para pruebas. \\
+  \midrule
+  \textbf{RF-07} & \textbf{Tablero web} & El prototipo ofrecerá un tablero
+    web de consulta. \\
+  RF-07.1 & Indicadores & El tablero mostrará indicadores, gráficas,
+    unidades dentro y estancias. \\
+  RF-07.2 & Video en vivo & El tablero mostrará el video de la cámara a
+    10~cuadros por segundo y 960~px de ancho. \\
+  RF-07.3 & Lista de cruces & El tablero listará los cruces con búsqueda
+    por número o empresa, filtro por fechas y páginas de 10. \\
+  RF-07.4 & Trayectoria & El tablero mostrará el recorrido de una unidad. \\
+  RF-07.5 & Estado del sistema & El prototipo informará su estado
+    (conexión, cuadros por segundo, contadores) en una ruta de salud. \\
+  \midrule
+  \textbf{RF-08} & \textbf{Grabación continua} & El prototipo conservará el
+    video de la cámara como evidencia. \\
+  RF-08.1 & Grabación por hora & El prototipo grabará el video sin
+    recodificar en archivos de una hora y conservará las últimas 72~horas.
+    \\
+  RF-08.2 & Consulta de grabaciones & El tablero permitirá consultar y
+    reproducir las grabaciones por hora. \\
+  \bottomrule
+\end{longtable}
+}
+
+\section{Arquitectura general del prototipo}
+
+\subsection{Arquitectura en capas}
+
+\saru{} se organiza en capas, cada una con una responsabilidad. Esta
+separación permite probar cada parte por separado, cambiar un servicio
+externo sin tocar la lógica de visión y que varias personas trabajen en
+módulos distintos sin pisarse.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+      capa/.style={draw=azulCISA, fill=azulClaro, rounded corners=3pt,
+                   minimum width=14cm, minimum height=1.25cm, align=center,
+                   font=\small},
+      capaAlt/.style={capa, draw=verdeCISA, fill=verdeFondo},
+      capaGris/.style={capa, draw=grisTexto, fill=grisFondo},
+    ]
+    \node[capa] (pres) at (0,0) {\textbf{Presentación}\quad tablero,
+      video en vivo, grabaciones\quad(\texttt{web/}, \texttt{templates/},
+      \texttt{static/})};
+    \node[capaAlt] (logica) at (0,-1.6) {\textbf{Lógica de visión y cruce}\quad
+      cámara, M1, M2+M3, votación, línea virtual\quad(\texttt{logica/},
+      \texttt{ml/})};
+    \node[capa] (infra) at (0,-3.2) {\textbf{Servicios externos}\quad
+      Telegram, Gemini, WhatsApp\quad(\texttt{avisos/}, \texttt{whatsapp/})};
+    \node[capaGris] (datos) at (0,-4.8) {\textbf{Datos}\quad SQLite, padrón,
+      fotos, recortes y grabaciones\quad(\texttt{metricas/},
+      \texttt{scripts/grabar.sh})};
+    \draw[flecha] (pres) -- (logica);
+    \draw[flecha] (logica) -- (infra);
+    \draw[flecha] (infra) -- (datos);
+  \end{tikzpicture}%
+  }
+  \caption{Arquitectura general del prototipo.}
+  \label{fig:capas}
+\end{figure}
+
+\begin{enumerate}
+  \item \textbf{Presentación}: Flask sirve el tablero, el video en vivo,
+        las fotos, las grabaciones y una API JSON. Las rutas solo leen
+        datos; no contienen lógica de visión ni de almacenamiento.
+  \item \textbf{Lógica de visión y cruce}: la cámara publica el cuadro más
+        reciente; un hilo ejecuta M1 y el seguimiento, y otro ejecuta M2 y
+        M3. La línea virtual decide los cruces y elige el mejor número.
+  \item \textbf{Servicios externos}: envío de avisos a Telegram y WhatsApp
+        y validación con Gemini. Todos se pueden desactivar sin afectar el
+        registro.
+  \item \textbf{Datos}: un solo módulo accede a la base SQLite; el padrón se
+        lee de un archivo CSV; fotos, recortes y grabaciones se guardan en
+        el disco de la Jetson.
+\end{enumerate}
+
+El sistema se despliega con Docker Compose en tres servicios:
+\texttt{cisa-vision} (todas las capas anteriores), \texttt{cisa-grabacion}
+(grabación continua) y \texttt{cisa-whatsapp} (puente de WhatsApp). La
+grabación es independiente de la detección: una falla en una no detiene a
+la otra~\cite{rep-tecnico}.
+
+\section{Diagrama de base de datos}
+
+El modelo relacional se organiza en dos ejes: los \textbf{catálogos}
+(tipos de unidad, puertas y unidades) y los \textbf{movimientos} (eventos
+de paso y estancias). La duración y el estatus de cada estancia no se
+escriben: la base los calcula a partir de las horas de entrada y salida.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+      tabla/.style={draw=azulCISA, fill=white, rounded corners=2pt,
+                    align=left, font=\scriptsize\ttfamily, inner sep=4pt},
+      fk/.style={-{Stealth[length=2mm]}, thick, draw=azulCISA},
+    ]
+    \node[tabla] (tipo) at (0,0) {\begin{tabular}{@{}l@{}}
+      \textbf{tipo\_unidad}\\\hline
+      id\_tipo (PK)\\codigo\\descripcion\end{tabular}};
+    \node[tabla] (unidad) at (4.2,0) {\begin{tabular}{@{}l@{}}
+      \textbf{unidad}\\\hline
+      id\_unidad (PK)\\no\_economico\\empresa\\id\_tipo (FK)\\en\_padron
+      \end{tabular}};
+    \node[tabla] (puerta) at (0,-3.6) {\begin{tabular}{@{}l@{}}
+      \textbf{puerta}\\\hline
+      id\_puerta (PK)\\nombre\end{tabular}};
+    \node[tabla] (evento) at (4.2,-3.6) {\begin{tabular}{@{}l@{}}
+      \textbf{evento\_paso}\\\hline
+      id\_evento (PK)\\id\_unidad (FK)\\direccion\\id\_puerta (FK)\\zona\\
+      confianza\\ruta\_captura\\hora\_paso\\hora\_registro\end{tabular}};
+    \node[tabla] (estancia) at (9.0,-1.8) {\begin{tabular}{@{}l@{}}
+      \textbf{estancia}\\\hline
+      id\_estancia (PK)\\id\_unidad (FK)\\entrada\_id (FK)\\salida\_id (FK)\\
+      hora\_entrada\\hora\_salida\\minutos (calculada)\\estatus (calculada)
+      \end{tabular}};
+    \draw[fk] (unidad) -- (tipo);
+    \draw[fk] (evento) -- (unidad);
+    \draw[fk] (evento) -- (puerta);
+    \draw[fk] (estancia) -- (unidad);
+    \draw[fk] (estancia) -- (evento);
+  \end{tikzpicture}%
+  }
+  \caption{Modelo relacional de la base de datos. Las flechas van de la
+           llave foránea a la tabla referida.}
+  \label{fig:bd}
+\end{figure}
+
+Sobre estas tablas se definen vistas para las consultas del tablero:
+unidades dentro en este momento, historial y promedio de estancias por
+empresa, y números detectados fuera del padrón.

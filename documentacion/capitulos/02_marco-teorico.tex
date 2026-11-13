@@ -1,0 +1,163 @@
+% =====================================================================
+%  02_marco-teorico.tex — Conceptos y tecnologías en que se apoya SARU
+% =====================================================================
+\chapter{Marco teórico}
+\label{cap:marco}
+
+Este capítulo resume los conceptos en que se apoya \saru{}: la detección y
+el seguimiento de objetos en video, la lectura de caracteres, la
+determinación de cruces con una línea virtual, la computación en el borde y
+las tecnologías de soporte del sistema.
+
+\section{Visión artificial y detección de objetos}
+
+La detección de objetos consiste en localizar, dentro de una imagen, cada
+instancia de una clase de interés y delimitarla con un recuadro. Los
+detectores modernos se basan en redes neuronales convolucionales y se
+dividen en dos familias: los de dos etapas, que primero proponen regiones y
+después las clasifican, y los de una etapa, que predicen recuadros y clases
+en una sola pasada.
+
+\subsection{YOLO}
+
+YOLO (\emph{You Only Look Once}) es un detector de una etapa que divide la
+imagen en una cuadrícula y predice, para cada celda, recuadros con su
+confianza y su clase en una sola evaluación de la red~\cite{redmon2016yolo}.
+Al no requerir una etapa de propuesta de regiones, es lo bastante rápido
+para procesar video en tiempo real. \saru{} usa la implementación de
+Ultralytics~\cite{ultralytics} para sus tres modelos.
+
+Cada detección tiene una \textbf{confianza} entre 0 y 1; el sistema
+descarta las que quedan por debajo de un umbral. Un umbral alto reduce los
+falsos positivos a cambio de perder detecciones dudosas; uno bajo hace lo
+contrario.
+
+\subsection{Modelos en cascada}
+
+En lugar de un solo modelo que lo resuelva todo, \saru{} encadena tres
+detectores especializados. Cada etapa trabaja sobre el recorte que entrega
+la anterior, de modo que los modelos posteriores procesan imágenes más
+pequeñas y con menos distractores:
+
+\begin{description}[style=nextline]
+  \item[M1 — unidad] Detecta autobuses en el cuadro completo.
+  \item[M2 — zona del número] Dentro del recorte de cada unidad, localiza
+        la zona donde está pintado el número y la clasifica como
+        delantera, lateral o trasera.
+  \item[M3 — dígitos] Dentro de la zona, detecta cada dígito del 0 al 9
+        como una clase independiente.
+\end{description}
+
+\section{Seguimiento multiobjeto}
+
+Detectar una unidad en un cuadro no basta: hay que saber que la unidad del
+cuadro siguiente es la misma. El enfoque de \emph{seguimiento por
+detección} asocia las detecciones de cuadros consecutivos y asigna a cada
+objeto un identificador que se conserva mientras permanece en escena.
+
+ByteTrack es un algoritmo de este tipo que asocia todas las detecciones,
+incluidas las de baja confianza, en lugar de descartarlas. Con ello
+recupera objetos parcialmente ocultos y reduce los cambios de
+identificador~\cite{zhang2022bytetrack}. En \saru{}, el identificador de
+seguimiento permite acumular varias lecturas del número de una misma
+unidad y evaluar su trayectoria respecto de la línea virtual.
+
+\section{Lectura de caracteres por detección}
+
+Los sistemas de reconocimiento automático de matrículas suelen dividirse
+en detección del vehículo, localización de la placa y reconocimiento de
+caracteres~\cite{shashirangana2021alpr}. Una alternativa para la última
+etapa es tratar cada carácter como un objeto: un detector localiza los
+dígitos y estos se ordenan por su posición horizontal para formar el
+número~\cite{laroca2018yolo}. \saru{} aplica este enfoque con M3.
+
+Antes de leer los dígitos, la imagen de la zona se mejora con CLAHE
+(\emph{Contrast Limited Adaptive Histogram Equalization}), que ecualiza el
+contraste por regiones pequeñas y limita la amplificación del
+ruido~\cite{zuiderveld1994clahe}. Esto ayuda con números pintados en
+superficies con reflejos o sombras.
+
+\subsection{Confirmación por votación}
+
+Una sola lectura puede confundir dígitos parecidos (un 5 con un 6, un 8 con
+un 3) o perder uno. Por eso un número solo se \textbf{confirma} cuando
+varias lecturas de la misma unidad coinciden. Si un número leído es otro
+con dígitos de menos (por ejemplo, \texttt{504} dentro de \texttt{5014}), se
+prefiere el más largo.
+
+\section{Determinación de cruces con una línea virtual}
+
+Una \textbf{línea virtual} es un trazo definido por puntos en la imagen de
+la cámara. Para saber de qué lado de un segmento $\overline{PQ}$ se
+encuentra un punto $B$ de la unidad, se usa el signo del producto cruz:
+
+\begin{equation}
+  s = (Q_x - P_x)(B_y - P_y) - (Q_y - P_y)(B_x - P_x)
+\end{equation}
+
+Un valor positivo indica un lado y uno negativo el otro. Un cambio de signo
+entre dos posiciones consecutivas indica un posible cruce. Para que el
+conteo sea robusto se agregan tres reglas:
+
+\begin{itemize}
+  \item \textbf{Margen}: dentro de una franja alrededor de la línea el lado
+        no cambia. Así, el temblor de la detección con la unidad detenida
+        sobre la línea no produce cruces en cadena.
+  \item \textbf{Cruce real}: con una línea finita, el cambio de lado solo
+        cuenta si el segmento recorrido por la unidad corta algún tramo de
+        la línea; rodearla por un extremo no es un cruce~\cite{rep-tecnico}.
+  \item \textbf{Maniobra y repetición}: si la unidad regresa antes de cierto
+        tiempo, el movimiento se descarta; y un mismo número no se registra
+        dos veces en un intervalo corto.
+\end{itemize}
+
+\section{Computación en el borde}
+
+La computación en el borde procesa los datos cerca de donde se generan, en
+lugar de enviarlos a un centro de datos. Reduce la latencia, el consumo de
+ancho de banda y la exposición de datos sensibles~\cite{shi2016edge}. Para
+video, evita transmitir de forma continua un flujo de alta resolución.
+
+\subsection{NVIDIA Jetson Orin y TensorRT}
+
+La familia Jetson Orin integra CPU y GPU en un módulo de bajo consumo
+pensado para inferencia en el borde~\cite{jetson}. TensorRT optimiza un
+modelo entrenado para una GPU concreta: fusiona capas, reduce la precisión
+numérica cuando es seguro hacerlo y genera un \emph{motor}
+(\texttt{.engine})~\cite{tensorrt}. Ese motor depende de la GPU y de la
+versión de TensorRT con que se creó, por lo que debe generarse en la propia
+Jetson.
+
+\section{Validación con modelos de lenguaje multimodales}
+
+Los modelos de lenguaje multimodales reciben imágenes y texto y responden
+en lenguaje natural. \saru{} usa Gemini~\cite{gemini} como segunda opinión:
+le envía la foto del cruce y el número leído, y el modelo indica si
+coinciden. Cuando hay duda, la decisión pasa a una persona por Telegram.
+
+\section{Tecnologías de soporte}
+
+\begin{longtable}{@{}L{3.4cm}L{10.6cm}@{}}
+  \caption{Tecnologías de soporte de \saru{}.}
+  \label{tab:tecnologias} \\
+  \toprule
+  \textbf{Tecnología} & \textbf{Uso en el sistema} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Tecnología} & \textbf{Uso en el sistema} \\
+  \midrule
+  \endhead
+  OpenCV & Lectura del video RTSP y manejo de imágenes~\cite{opencv}. \\
+  Flask & Servidor web del tablero y de la API de consulta~\cite{flask}. \\
+  SQLite & Base de datos local de cruces y estancias, en modo WAL para
+    permitir lecturas mientras se escribe~\cite{sqlite}. \\
+  Docker Compose & Despliegue de los tres servicios del sistema en la
+    Jetson. \\
+  Telegram Bot API & Avisos al grupo de operación y validación con botones
+    \cite{telegram}. \\
+  Baileys & Cliente de WhatsApp Web para reenviar los avisos; no es la API
+    oficial de WhatsApp~\cite{baileys}. \\
+  FFmpeg & Grabación continua del video de la cámara sin recodificar. \\
+  \bottomrule
+\end{longtable}

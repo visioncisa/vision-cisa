@@ -1,9 +1,16 @@
-# Documentación de CISA
+# Documentación de SARU
 
-Carpeta de la documentación técnica del proyecto **CISA — Control de unidades por
-visión**. Aquí vive el documento escrito en LaTeX, sus imágenes y todo lo
-necesario para compilarlo. El resultado es un PDF único:
-`CISA-documentacion.pdf`.
+Carpeta de la documentación del proyecto **SARU — Sistema Automatizado de
+Reconocimiento de Unidades** (Grupo CISA). Aquí vive el documento escrito en
+LaTeX, sus imágenes y todo lo necesario para compilarlo. El resultado es un PDF
+único: `SARU-documentacion.pdf`.
+
+El documento es un **reporte de seguimiento** con metodología de
+**prototipado evolutivo**: introducción, marco teórico, estado del arte,
+metodología, bosquejo general (requerimientos, arquitectura, base de datos) y
+un apartado por prototipo (historias de usuario, arquitectura, componentes,
+interfaz, desarrollo y protocolo de pruebas). Hoy reporta el **Prototipo 1**.
+Lo marcado *Por validar* o *Por definir* no es un hecho todavía.
 
 > **Regla de oro:** si cambias el comportamiento del sistema, cambia también la
 > documentación en el mismo *pull request*. La documentación es parte del
@@ -23,24 +30,24 @@ documentacion/
 │
 ├── capitulos/                el escrito, un archivo por capítulo
 │   ├── 00_portada.tex
-│   ├── 01_introduccion.tex
-│   ├── 02_arquitectura.tex
-│   ├── 03_instalacion.tex
-│   ├── 04_operacion.tex
-│   ├── 05_datos.tex
-│   ├── 06_referencia.tex
-│   ├── A_checklist.tex
+│   ├── 00_resumen.tex
+│   ├── 01_introduccion.tex       problemática, propuesta, objetivos, justificación
+│   ├── 02_marco-teorico.tex
+│   ├── 03_estado-del-arte.tex
+│   ├── 04_metodologia.tex        prototipado evolutivo y plan de prototipos
+│   ├── 05_bosquejo-general.tex   requerimientos, arquitectura, base de datos
+│   ├── 06_prototipos.tex         un apartado por prototipo (hoy: Prototipo 1)
+│   ├── 07_trabajo-futuro.tex
+│   ├── 08_conclusiones.tex
+│   ├── A_evidencias-p1.tex       evidencias de las pruebas del Prototipo 1
+│   ├── B_glosario.tex            un término por concepto
 │   └── ...                   un archivo por capítulo
 │
 ├── figuras/                  TODAS las imágenes, separadas por capítulo
 │   ├── compartidas/          logo, iconos, imágenes de varios capítulos
-│   ├── 01_introduccion/
-│   ├── 02_arquitectura/
-│   ├── 03_instalacion/
-│   ├── 04_operacion/
-│   ├── 05_datos/
-│   ├── 06_referencia/
-│   ├── A_checklist/
+│   ├── 01_introduccion/ … 08_conclusiones/
+│   ├── A_evidencias_p1/      una imagen por caso de prueba: <ID>.png
+│   ├── B_glosario/
 │   └── LEEME.md              reglas para nombrar y usar imágenes
 │
 ├── estilos/
@@ -53,7 +60,7 @@ documentacion/
 │   └── referencias.bib       fuentes citadas (BibTeX)
 │
 ├── build/                    (se crea al compilar; NO se sube a Git)
-└── CISA-documentacion.pdf    (se crea al compilar; NO se sube a Git)
+└── SARU-documentacion.pdf    (se crea al compilar; NO se sube a Git)
 ```
 
 ### Para qué sirve cada cosa
@@ -62,6 +69,9 @@ documentacion/
 |---|---|
 | `main.tex` | Une portada, índices y capítulos. Casi nunca se toca: solo para registrar un capítulo nuevo. |
 | `capitulos/*.tex` | El texto real. Cada capítulo es independiente: se puede editar sin tocar a los demás. |
+| `capitulos/06_prototipos.tex` | Un apartado por prototipo con la misma estructura. Al iniciar el Prototipo 2, copiar la estructura del Prototipo 1. |
+| `\historiaUsuario{ID}{Título}{Historia}{Prioridad}{Criterios}` | Comando de `cisa.sty` para las historias de usuario; genera la tabla con su número y etiqueta `hu:ID`. |
+| `capitulos/B_glosario.tex` | Vocabulario oficial del proyecto. Si un texto usa otra palabra para el mismo concepto, se corrige el texto, no el glosario. |
 | `figuras/<capítulo>/` | Espacio propio de cada capítulo para sus imágenes. Así nadie pisa los archivos de otro. |
 | `estilos/cisa.sty` | El estilo del documento. Si necesitas un paquete o un comando nuevo, va aquí. |
 | `plantillas/` | Punto de partida para no empezar de cero. |
@@ -103,7 +113,7 @@ Desde esta carpeta:
 
 ```bash
 cd documentacion
-make            # compila y deja CISA-documentacion.pdf
+make            # compila y deja SARU-documentacion.pdf
 make ver        # compila y abre el PDF
 make limpio     # borra los archivos intermedios
 ```
@@ -114,7 +124,7 @@ Equivalente sin `make`:
 latexmk -pdf main.tex
 ```
 
-El PDF final queda en `documentacion/CISA-documentacion.pdf` y una copia en
+El PDF final queda en `documentacion/SARU-documentacion.pdf` y una copia en
 `build/main.pdf`.
 
 ### Compilar con VS Code (recomendado)
@@ -294,7 +304,7 @@ Si dos personas usan la misma etiqueta, LaTeX avisa con
 | `File ... not found` | Ruta de imagen incorrecta | La ruta es relativa a `figuras/` y sin `figuras/` al inicio. |
 | `Reference ... undefined` | La etiqueta no existe o falta compilar dos veces | Ejecutar `make` otra vez; `latexmk` lo hace solo. |
 | `\url used in a moving argument` | `\path` dentro de un `\caption` o `\section` | Usar `\texttt{}` en títulos y pies. |
-| El PDF no se actualiza | Se abrió `build/main.pdf` en vez del final | Abrir `CISA-documentacion.pdf`. |
+| El PDF no se actualiza | Se abrió `build/main.pdf` en vez del final | Abrir `SARU-documentacion.pdf`. |
 | `make: latexmk: command not found` | Falta LaTeX | Ver sección 2. |
 
 Si nada funciona, compilar limpio:
@@ -308,7 +318,7 @@ make todo-limpio && make
 ## 7. Qué NO se sube a Git
 
 - `build/` y cualquier `*.aux`, `*.log`, `*.toc`, `*.bbl`.
-- El PDF final (`CISA-documentacion.pdf`): se regenera con `make`. Si alguien lo
+- El PDF final (`SARU-documentacion.pdf`): se regenera con `make`. Si alguien lo
   necesita sin compilar, se lo comparte por otro medio.
 - Fotos con personas identificables o datos sensibles sin autorización.
 - Archivos de más de ~10 MB. Optimizar antes de hacer commit.
@@ -320,9 +330,9 @@ make todo-limpio && make
 | Tema | Responsable |
 |---|---|
 | Estilo, `main.tex` y compilación | *(nombre)* |
-| Capítulo de arquitectura | *(nombre)* |
-| Capítulo de instalación y operación | *(nombre)* |
-| Capítulo de datos | *(nombre)* |
+| Introducción, marco teórico y estado del arte | *(nombre)* |
+| Bosquejo general y Prototipo 1 | *(nombre)* |
+| Protocolo de pruebas y evidencias | *(nombre)* |
 
 > Completar esta tabla al inicio del semestre. Si alguien no aparece, la
 > responsabilidad por omisión es del equipo completo.

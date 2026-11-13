@@ -1,5 +1,5 @@
 % =====================================================================
-%  cisa.sty — Estilo único de la documentación de CISA
+%  cisa.sty — Estilo único de la documentación de SARU
 %  ---------------------------------------------------------------------
 %  Aquí van TODOS los paquetes, colores, cajas y comandos propios.
 %  Los capítulos NO cargan paquetes: solo usan lo que define este archivo.
@@ -13,6 +13,8 @@
 \RequirePackage[T1]{fontenc}
 \RequirePackage[utf8]{inputenc}
 \RequirePackage[spanish,es-tabla,es-nodecimaldot,es-noshorthands]{babel}
+% La bibliografía se titula "Referencias" (como en los reportes del equipo).
+\addto\captionsspanish{\renewcommand{\bibname}{Referencias}}
 
 % ── Página ───────────────────────────────────────────────────────────
 \RequirePackage[a4paper,top=3cm,bottom=3cm,left=2.8cm,right=2.8cm,
@@ -166,7 +168,8 @@
   \begin{figure}[htbp]
     \centering
     \begin{tcolorbox}[enhanced, width=0.85\linewidth, colback=white,
-                      colframe=grisTexto, boxrule=0.6pt, arc=1.5mm, dashed,
+                      frame hidden, arc=1.5mm,
+                      borderline={0.6pt}{0pt}{grisTexto, dashed},
                       left=8pt, right=8pt, top=8pt, bottom=8pt]
       \centering
       {\bfseries\small Figura pendiente}\\[4pt]
@@ -189,8 +192,8 @@
   urlcolor=azulCISA,
   bookmarksnumbered=true,
   bookmarksopen=true,
-  pdftitle={CISA — Documentación técnica},
-  pdfauthor={Equipo VisionCISA}
+  pdftitle={SARU — Documentación de análisis},
+  pdfauthor={Equipo SARU}
 }
 
 % Las rutas solo se cortan después de "/", "-" o "_" (no en los puntos),
@@ -222,6 +225,36 @@
 }
 
 % ── Comandos de texto ────────────────────────────────────────────────
-\newcommand{\cisa}{CISA}
-\newcommand{\versionDoc}{1.0}
+\newcommand{\saru}{SARU}   % nombre del proyecto (ver glosario)
+\newcommand{\cisa}{CISA}   % organización: Grupo CISA
+\newcommand{\versionDoc}{0.1}
 \newcommand{\fechaDoc}{13 de noviembre de 2026}
+
+% ── Historias de usuario ─────────────────────────────────────────────
+% \historiaUsuario{ID}{Título}{Historia}{Prioridad}{Criterios de aceptación}
+%   Ej.: \historiaUsuario{HU-01}{Consultar unidades dentro}
+%          {Como operador del patio, quiero..., para...}{Alta}
+%          {\begin{itemize}[nosep,leftmargin=*] \item ... \end{itemize}}
+% Genera una tabla numerada con etiqueta hu:ID (p. ej. \ref{hu:HU-01}).
+\newcommand{\historiaUsuario}[5]{%
+  \begin{table}[H]
+    \centering\small
+    % Las listas dentro de la celda empiezan a la altura de la prioridad.
+    \setlist[itemize]{nosep, leftmargin=*,
+                      before=\vspace{-0.75\baselineskip},
+                      after=\vspace{-0.35\baselineskip}}%
+    \begin{tabular}{@{}L{2.1cm}L{11.5cm}@{}}
+      \toprule
+      \textbf{ID} & \textbf{Historia de usuario --- #2} \\
+      \midrule
+      \textbf{#1} & #3 \\
+      \midrule
+      \textbf{Prioridad} & \textbf{Criterios de aceptación} \\
+      \midrule
+      #4 & #5 \\
+      \bottomrule
+    \end{tabular}
+    \caption{Historia de usuario --- #2.}
+    \label{hu:#1}
+  \end{table}%
+}
