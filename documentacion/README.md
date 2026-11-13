@@ -60,7 +60,7 @@ documentacion/
 │   └── referencias.bib       fuentes citadas (BibTeX)
 │
 ├── build/                    (se crea al compilar; NO se sube a Git)
-└── SARU-documentacion.pdf    (se crea al compilar; NO se sube a Git)
+└── SARU-documentacion.pdf    (se crea al compilar; SÍ se sube a Git)
 ```
 
 ### Para qué sirve cada cosa
@@ -186,7 +186,7 @@ Después se abre el *pull request* contra `main`. Mensajes de commit sugeridos:
 - [ ] `make` compila sin errores (los *warnings* se revisan, no se ignoran).
 - [ ] Lo que dice el documento coincide con el código actual.
 - [ ] Las imágenes están en `figuras/<capítulo>/`, no sueltas.
-- [ ] No se subieron `build/`, `*.aux`, `*.log` ni el PDF.
+- [ ] No se subieron `build/`, `*.aux` ni `*.log`; el PDF final está regenerado.
 - [ ] No se subieron `.env`, `datos/` ni `whatsapp/sesion/`.
 
 ---
@@ -318,8 +318,9 @@ make todo-limpio && make
 ## 7. Qué NO se sube a Git
 
 - `build/` y cualquier `*.aux`, `*.log`, `*.toc`, `*.bbl`.
-- El PDF final (`SARU-documentacion.pdf`): se regenera con `make`. Si alguien lo
-  necesita sin compilar, se lo comparte por otro medio.
+- `build/main.pdf` (copia intermedia). El PDF final `SARU-documentacion.pdf`
+  **sí se sube**, para que cualquiera lo lea sin compilar: vuelve a generarlo
+  con `make` y súbelo junto con los cambios de los `.tex`.
 - Fotos con personas identificables o datos sensibles sin autorización.
 - Archivos de más de ~10 MB. Optimizar antes de hacer commit.
 

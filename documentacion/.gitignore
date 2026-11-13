@@ -15,7 +15,7 @@ build/
 *.run.xml
 *.xdv
 main.pdf
-SARU-documentacion.pdf
+# SARU-documentacion.pdf SÍ se sube: es la versión para leer sin compilar.
 
 # ── Respaldos y archivos temporales ──────────────────────────────────
 *.bak
