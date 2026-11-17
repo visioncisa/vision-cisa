@@ -8,7 +8,7 @@ La lógica vive en las carpetas:
     config.py  -> toda la configuración (lee el .env)
     logica/    -> estado compartido + cámara
     ml/        -> modelos YOLO, lectura de dígitos, línea virtual, hilos M1/M2M3
-    metricas/  -> registro de eventos, estancias y datos del dashboard (SQLite)
+    metricas/  -> registro de eventos, estancias y datos del dashboard (PostgreSQL)
     web/       -> Flask: páginas, API y video en vivo (MJPEG)
 La grabación cada hora corre aparte (servicio cisa-grabacion, scripts/grabar.sh).
 ================================================================

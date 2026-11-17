@@ -81,10 +81,12 @@ def quitar_encimados(cajas, max_traslape=0.5):
 
 
 def validar_numero(numero):
-    if not numero or not numero.isdigit() or len(numero) not in (3, 4):
+    if not numero or not numero.isdigit() or len(numero) not in (2, 3, 4):
         return None
     if numero in UNIDADES_VALIDAS:
-        return numero
+        return numero          # incluye unidades de 2 dígitos del padrón (p. ej. la 31)
+    if len(numero) == 2:
+        return None            # una lectura de 2 dígitos no se "corrige"
     if len(numero) == 3 and numero[0] == '5':
         c = numero[0] + '0' + numero[1:]
         if c in UNIDADES_VALIDAS:
