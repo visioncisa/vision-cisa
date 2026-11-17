@@ -83,7 +83,9 @@ Una sola lectura puede confundir dígitos parecidos (un 5 con un 6, un 8 con
 un 3) o perder uno. Por eso un número solo se \textbf{confirma} cuando
 varias lecturas de la misma unidad coinciden. Si un número leído es otro
 con dígitos de menos (por ejemplo, \texttt{504} dentro de \texttt{5014}), se
-prefiere el más largo.
+prefiere el más largo. Por la misma razón, un número de dos dígitos (como
+la unidad \texttt{31}) exige más lecturas iguales que uno de tres o cuatro,
+porque puede ser un pedazo de otro número (\texttt{5031} o \texttt{931}).
 
 \section{Determinación de cruces con una línea virtual}
 
@@ -150,8 +152,9 @@ coinciden. Cuando hay duda, la decisión pasa a una persona por Telegram.
   \endhead
   OpenCV & Lectura del video RTSP y manejo de imágenes~\cite{opencv}. \\
   Flask & Servidor web del tablero y de la API de consulta~\cite{flask}. \\
-  SQLite & Base de datos local de cruces y estancias, en modo WAL para
-    permitir lecturas mientras se escribe~\cite{sqlite}. \\
+  PostgreSQL & Base de datos \texttt{patio\_cca} en la propia Jetson, con
+    los cruces, las estancias, el padrón y el catálogo de unidades. Calcula
+    la duración de cada estancia con columnas generadas~\cite{postgresql}. \\
   Docker Compose & Despliegue de los tres servicios del sistema en la
     Jetson. \\
   Telegram Bot API & Avisos al grupo de operación y validación con botones

@@ -160,7 +160,7 @@ módulos distintos sin pisarse.
       \texttt{ml/})};
     \node[capa] (infra) at (0,-3.2) {\textbf{Servicios externos}\quad
       Telegram, Gemini, WhatsApp\quad(\texttt{avisos/}, \texttt{whatsapp/})};
-    \node[capaGris] (datos) at (0,-4.8) {\textbf{Datos}\quad SQLite, padrón,
+    \node[capaGris] (datos) at (0,-4.8) {\textbf{Datos}\quad PostgreSQL, padrón,
       fotos, recortes y grabaciones\quad(\texttt{metricas/},
       \texttt{scripts/grabar.sh})};
     \draw[flecha] (pres) -- (logica);
@@ -182,9 +182,11 @@ módulos distintos sin pisarse.
   \item \textbf{Servicios externos}: envío de avisos a Telegram y WhatsApp
         y validación con Gemini. Todos se pueden desactivar sin afectar el
         registro.
-  \item \textbf{Datos}: un solo módulo accede a la base SQLite; el padrón se
-        lee de un archivo CSV; fotos, recortes y grabaciones se guardan en
-        el disco de la Jetson.
+  \item \textbf{Datos}: un solo módulo (\path{metricas/storage.py}) accede
+        a la base PostgreSQL \texttt{patio\_cca}, que corre en la Jetson
+        fuera de Docker. El padrón se edita en un archivo CSV y se copia a la
+        base al arrancar; fotos, recortes y grabaciones se guardan en el disco
+        de la Jetson.
 \end{enumerate}
 
 El sistema se despliega con Docker Compose en tres servicios:
@@ -195,10 +197,22 @@ la otra~\cite{rep-tecnico}.
 
 \section{Diagrama de base de datos}
 
-El modelo relacional se organiza en dos ejes: los \textbf{catálogos}
-(tipos de unidad, puertas y unidades) y los \textbf{movimientos} (eventos
-de paso y estancias). La duración y el estatus de cada estancia no se
-escriben: la base los calcula a partir de las horas de entrada y salida.
+La base de datos es \texttt{patio\_cca}, en el servidor PostgreSQL de la
+Jetson. El esquema completo está en \path{metricas/schema.sql} y se aplica
+en cada arranque; todas sus instrucciones son \texttt{IF NOT EXISTS} u
+\texttt{OR REPLACE}, por lo que pueden ejecutarse siempre.
+
+El modelo relacional se organiza en dos ejes: los \textbf{datos de
+referencia} (tipos de unidad, puertas, unidades y el catálogo
+\texttt{cat}) y los \textbf{movimientos} (eventos de paso y estancias). La
+duración y el estatus de cada estancia no se escriben: la base los calcula
+con columnas generadas a partir de las horas de entrada y salida.
+
+La tabla \texttt{cat} guarda los datos de fábrica de cada unidad: VIN,
+empresa, marca, modelo, año, motor y serie del motor. Se carga con
+\path{scripts/cargar_cat.py} y se relaciona con \texttt{unidad} por el
+número económico, sin llave foránea, para que una unidad pueda estar en el
+padrón aunque todavía no esté en el catálogo.
 
 \begin{figure}[htbp]
   \centering
@@ -227,6 +241,13 @@ escriben: la base los calcula a partir de las horas de entrada y salida.
       id\_estancia (PK)\\id\_unidad (FK)\\entrada\_id (FK)\\salida\_id (FK)\\
       hora\_entrada\\hora\_salida\\minutos (calculada)\\estatus (calculada)
       \end{tabular}};
+    \node[tabla] (cat) at (9.0,2.5) {\begin{tabular}{@{}l@{}}
+      \textbf{cat}\\\hline
+      eco (PK)\\vin (único)\\destino\\marca\\modelo\\anio\\motor\\seriemotor
+      \end{tabular}};
+    \draw[thick, dashed, draw=azulCISA] (cat) -- node[font=\scriptsize\itshape,
+      text=grisTexto, fill=white, inner sep=1pt, align=center]
+      {eco =\\no\_economico} (unidad);
     \draw[fk] (unidad) -- (tipo);
     \draw[fk] (evento) -- (unidad);
     \draw[fk] (evento) -- (puerta);
@@ -234,11 +255,19 @@ escriben: la base los calcula a partir de las horas de entrada y salida.
     \draw[fk] (estancia) -- (evento);
   \end{tikzpicture}%
   }
-  \caption{Modelo relacional de la base de datos. Las flechas van de la
-           llave foránea a la tabla referida.}
+  \caption{Modelo relacional de la base de datos \texttt{patio\_cca}. Las
+           flechas van de la llave foránea a la tabla referida; la línea
+           punteada es una relación por valor, sin llave foránea.}
   \label{fig:bd}
 \end{figure}
 
 Sobre estas tablas se definen vistas para las consultas del tablero:
-unidades dentro en este momento, historial y promedio de estancias por
-empresa, y números detectados fuera del padrón.
+eventos con los datos de su unidad y del catálogo, unidades dentro en este
+momento, historial y promedio de estancias por empresa, y números
+detectados fuera del padrón. Las vistas se borran y se vuelven a crear en
+cada arranque para que siempre coincidan con el esquema.
+
+El histórico de la versión anterior, guardado en SQLite
+(\path{datos/detecciones.db}), se pasa una sola vez a PostgreSQL con
+\path{scripts/migrar_sqlite_a_postgres.py}; si el script se vuelve a
+ejecutar, no duplica datos.

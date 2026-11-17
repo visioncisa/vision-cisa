@@ -114,6 +114,8 @@ equipo. Deben confirmarse con los usuarios reales del patio.
      \item Con 4 lecturas iguales, el número se registra tal cual, marcado
            como fuera del padrón.
      \item No se corrige a un número parecido del padrón.
+     \item Un número de 2 dígitos (p.~ej. la unidad 31) solo se acepta si
+           está en el padrón y se lee al menos 4 veces igual.
      \item El tablero permite consultar los números fuera del padrón.
    \end{itemize}}
 
@@ -202,7 +204,7 @@ pasar, valida, registra y avisa. La grabación lee la cámara por separado.
     \node[caja] (voto)  at (11.2,0) {Votación\\lecturas iguales};
     \node[caja] (linea) at (11.2,-2.1) {Línea virtual\\entrada / salida};
     \node[caja] (valid) at (7.6,-2.1)  {Validación\\Gemini + Telegram};
-    \node[caja] (reg)   at (3.8,-2.1)  {Registro\\SQLite};
+    \node[caja] (reg)   at (3.8,-2.1)  {Registro\\PostgreSQL};
     \node[caja] (web)   at (0,-2.1)    {Tablero web\\MJPEG + consultas};
     \node[cajaGris] (grab)   at (0,-4.2)   {Grabación\\lee la cámara};
     \node[cajaGris] (avisos) at (3.8,-4.2) {Avisos\\Telegram / WhatsApp};
@@ -228,7 +230,98 @@ pasar, valida, registra y avisa. La grabación lee la cámara por separado.
   \label{fig:arq-p1}
 \end{figure}
 
-\subsection{Componentes del Prototipo 1}
+\subsection{Diagrama de componentes del Prototipo 1}
+\label{sec:componentes-p1}
+
+La figura~\ref{fig:componentes-p1} muestra los componentes del
+Prototipo~1 y sus dependencias, tomadas de las importaciones del código.
+El contenedor \texttt{cisa-vision} agrupa seis paquetes de Python. Los
+paquetes solo se comunican a través de funciones: \texttt{ml} llama a
+\texttt{avisos} para validar y avisar, y a \texttt{metricas} para
+registrar; \texttt{web} solo lee el estado compartido y la base de datos.
+Los servicios \texttt{cisa-grabacion} y \texttt{cisa-whatsapp} corren en
+contenedores separados, de modo que una falla en uno no detiene la
+detección.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+      paquete/.style={draw=azulCISA, fill=azulClaro, rounded corners=2pt,
+                      align=left, inner sep=4pt, text width=3.3cm},
+      externo/.style={draw=grisTexto, fill=grisFondo, rounded corners=2pt,
+                      align=center, font=\small, inner sep=4pt,
+                      text width=2.9cm, minimum height=9mm},
+      contenedor/.style={draw=verdeCISA, fill=verdeFondo, rounded corners=2pt,
+                      align=center, font=\small, inner sep=4pt,
+                      text width=2.9cm, minimum height=9mm},
+      mods/.style={font=\scriptsize\ttfamily},
+    ]
+    % ── Paquetes de cisa-vision ──
+    \node[paquete] (arranque) at (0,2.5) {\textbf{\small Arranque}\\[1pt]
+      {\scriptsize\ttfamily pipe\_stream\_v2.py\\config.py}};
+    \node[paquete] (logica) at (0,0) {\textbf{\small logica/}\\[1pt]
+      {\scriptsize\ttfamily camara.py\\estado.py}};
+    \node[paquete] (ml) at (4.8,0) {\textbf{\small ml/}\\[1pt]
+      {\scriptsize\ttfamily hilos.py\\modelos.py\\reconocimiento.py\\
+       preprocesamiento.py\\linea\_virtual.py}};
+    \node[paquete] (avisos) at (10.0,0) {\textbf{\small avisos/}\\[1pt]
+      {\scriptsize\ttfamily telegram.py\\gemini.py\\whatsapp.py}};
+    \node[paquete] (web) at (0,-3.4) {\textbf{\small web/}\\[1pt]
+      {\scriptsize\ttfamily servidor.py\\rutas.py\\templates/, static/}};
+    \node[paquete] (metricas) at (4.8,-3.4) {\textbf{\small metricas/}\\[1pt]
+      {\scriptsize\ttfamily metricas.py\\storage.py\\schema.sql}};
+    \begin{scope}[on background layer]
+      \node[draw=verdeCISA, dashed, rounded corners=4pt, fill=white,
+            fit=(arranque)(logica)(ml)(avisos)(web)(metricas),
+            inner sep=0.35cm,
+            label={[font=\scriptsize\bfseries, text=verdeCISA]above:%
+                   {Contenedor cisa-vision (un proceso de Python)}}] (vision) {};
+    \end{scope}
+
+    % ── Actores y sistemas externos ──
+    \node[externo] (cam) at (-4.4,0)    {Cámara IP\\(RTSP)};
+    \node[externo] (nav) at (-4.4,-3.4) {Navegador\\(operador,\\coordinación)};
+    \node[externo]    (tg)  at (15.0,1.9)  {Telegram Bot API};
+    \node[externo]    (gem) at (15.0,0.3)  {Gemini API};
+    \node[contenedor] (cwa) at (15.0,-1.4) {Contenedor\\cisa-whatsapp\\
+      {\scriptsize Node.js + Baileys,\\envía a WhatsApp}};
+    \node[externo]    (pg)  at (15.0,-3.4) {PostgreSQL\\\texttt{patio\_cca}\\
+      {\scriptsize (en la Jetson)}};
+    \node[contenedor] (grab) at (-4.4,-6.6) {Contenedor\\cisa-grabacion\\
+      {\scriptsize grabar.sh + FFmpeg}};
+    \node[externo] (disco) at (4.8,-6.6) {Disco de la Jetson\\
+      {\scriptsize fotos, recortes y grabaciones}};
+
+    % ── Dependencias ──
+    \draw[flecha] (cam) -- node[etiqueta,above]{RTSP} (logica);
+    \draw[flecha] (logica) -- node[etiqueta,above]{cuadro} (ml);
+    \draw[flecha] (ml) -- node[etiqueta,above,pos=0.62]{avisar} (avisos);
+    \draw[flecha] (ml) -- node[etiqueta,left]{registrar} (metricas);
+    \draw[flecha] (nav) -- node[etiqueta,above]{HTTP} (web);
+    \draw[flecha] (web) -- node[etiqueta,right]{estado y video} (logica);
+    \draw[flecha] (web) -- node[etiqueta,above]{consultas} (metricas);
+    \draw[flecha] (metricas) -- node[etiqueta,above,pos=0.7]{SQL} (pg);
+    \draw[flecha] (avisos.east) -- node[etiqueta,above,sloped,pos=0.6]{fotos} (tg.west);
+    \draw[flecha] (avisos.east) -- node[etiqueta,above,sloped,pos=0.6]{validación} (gem.west);
+    \draw[flecha] (avisos.east) -- node[etiqueta,below,sloped,pos=0.6]{HTTP} (cwa.west);
+    \draw[flechaGris] (cam.west) -- ++(-0.6,0) |- (grab.west);
+    \draw[flechaGris] ([yshift=-2.5mm]grab.east) -- node[etiqueta,below]{video por hora}
+      ([yshift=-2.5mm]disco.west);
+    \draw[flechaGris] ([yshift=-5mm]ml.east) -- (7.4,-0.5)
+      |- node[etiqueta,pos=0.3,right]{fotos y recortes} (disco.east);
+    \draw[flechaGris] (web.south) |- node[etiqueta,pos=0.75,above]{lee}
+      ([yshift=2mm]disco.west);
+  \end{tikzpicture}%
+  }
+  \caption{Diagrama de componentes del Prototipo 1. Las flechas van del
+           componente que usa al componente usado; las punteadas son
+           acceso a archivos o a la cámara fuera de \texttt{cisa-vision}.}
+  \label{fig:componentes-p1}
+\end{figure}
+
+La tabla~\ref{tab:componentes-p1} detalla la responsabilidad de cada
+módulo.
 
 \begin{longtable}{@{}L{4.4cm}L{2.8cm}L{6.8cm}@{}}
   \caption{Componentes del Prototipo 1.}
@@ -258,9 +351,16 @@ pasar, valida, registra y avisa. La grabación lee la cámara por separado.
     validación del número y guardado de recortes. \\
   \path{ml/linea_virtual.py} & Visión & Lado de la línea, margen,
     maniobras y evaluación del cruce. \\
-  \path{metricas/schema.sql} & Datos & Tablas, índices y vistas. \\
-  \path{metricas/storage.py} & Datos & Único acceso a la base;
-    sincronización del padrón, altas y consultas. \\
+  \path{metricas/schema.sql} & Datos & Esquema de PostgreSQL: tablas,
+    índices y vistas. Se aplica en cada arranque. \\
+  \path{metricas/storage.py} & Datos & Único acceso a la base
+    PostgreSQL; sincronización del padrón, altas y consultas. \\
+  \path{metricas/metricas.py} & Datos & Registro de cada cruce y datos
+    agregados para el tablero. \\
+  \path{scripts/cargar_cat.py} & Datos & Carga o actualiza el catálogo de
+    unidades desde un CSV. \\
+  \path{scripts/migrar_sqlite_a_postgres.py} & Datos & Pasa una sola vez el
+    histórico de SQLite a PostgreSQL. \\
   \path{avisos/telegram.py} & Servicios externos & Avisos y validación
     por Telegram. \\
   \path{avisos/gemini.py} & Servicios externos & Revisión automática de
@@ -300,7 +400,7 @@ los avisos llegan a Telegram y WhatsApp.
 
 \subsection{Desarrollo del Prototipo 1}
 
-El Prototipo~1 se consolidó entre el 3 y el 12 de noviembre de 2026. La
+El Prototipo~1 se consolidó entre el 3 y el 17 de noviembre de 2026. La
 tabla~\ref{tab:desarrollo-p1} resume los cambios principales según los
 reportes del equipo.
 
@@ -336,6 +436,11 @@ reportes del equipo.
     compara la base del recuadro de la unidad. Probada en simulación;
     pendiente con video real. Solo en el paquete
     \texttt{SARU\_V4}~\cite{rep-tecnico}. \\
+  17 nov & Cambio de la base de datos de SQLite a PostgreSQL
+    (\texttt{patio\_cca}) con migración del histórico; catálogo de unidades
+    (\texttt{cat}); tipo de unidad gasolina; COPATTSA como empresa reconocida
+    en avisos, tablero y filtros; y aceptación de números de 2 dígitos del
+    padrón, como la unidad 31. \\
   \bottomrule
 \end{longtable}
 
@@ -347,11 +452,186 @@ contrario. Definir una sola fuente de verdad es parte del trabajo a futuro
 (capítulo~\ref{cap:futuro}).
 \end{aviso}
 
-\figuraPendiente{06\_prototipos/p1-secuencia-cruce.png}
-  {Diagrama de secuencia del registro de un cruce: detección, lectura,
-   votación, cruce, espera, validación, registro y aviso}
-  {fig:p1-secuencia}
+\subsubsection{Diagramas de secuencia}
 
+Las figuras~\ref{fig:p1-secuencia} a~\ref{fig:p1-sec-grabacion} muestran
+los cuatro flujos principales del Prototipo~1, tomados del código del
+repositorio. Las flechas continuas son llamadas o peticiones; las
+punteadas, respuestas. Los nombres en \texttt{monoespaciado} son funciones
+del código.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}
+    \secParticipantes{-12.7}{%
+      0/cam/{Cámara\\\scriptsize logica/camara},
+      3.2/mu/{Hilo M1\\\scriptsize ml/hilos},
+      6.4/md/{Hilo M2 + M3\\\scriptsize ml/hilos},
+      9.6/lv/{Línea virtual\\\scriptsize ml/linea\_virtual},
+      12.8/av/{Avisos\\\scriptsize avisos/telegram},
+      16.0/me/{Métricas\\\scriptsize metricas/},
+      19.2/pg/{PostgreSQL\\\scriptsize patio\_cca}}
+    \secMensaje{0}{3.2}{-1.3}{cuadro más reciente}
+    \secPropio{3.2}{-1.8}{M1 + ByteTrack: unidades con su \texttt{track\_id}}
+    \secMensaje{3.2}{6.4}{-3.0}{cuadro + unidades\\(cola)}
+    \secPropio{6.4}{-3.5}{M2: zona del número; M3: dígitos}
+    \secPropio{6.4}{-4.3}{voto: 2 lecturas iguales = número
+      confirmado\\(4 si tiene 2 dígitos o no está en el padrón)}
+    \secMensaje{6.4}{9.6}{-5.7}{\texttt{evaluar\_cruce}\\(track, centro, número)}
+    \secRespuesta{9.6}{6.4}{-6.4}{entrada / salida}
+    \secPropio{6.4}{-6.9}{cruce pendiente: espera a que la unidad se
+      vaya\\(2~s sin verla; máximo 25~s) y sigue juntando lecturas}
+    \secPropio{6.4}{-7.9}{elige el número; descarta maniobras y
+      repeticiones\\del mismo número en menos de 60~s}
+    \secMensaje{6.4}{12.8}{-9.3}{\texttt{validar\_y\_enviar}(fotos, número)}
+    \secRespuesta{12.8}{6.4}{-10.1}{resultado y número final
+      (figura~\ref{fig:p1-sec-aviso})}
+    \secMarco{5.9}{-10.5}{20.5}{-12.4}{opt [no es una lectura sin
+      confirmar de un número del padrón]}
+    \secMensaje{6.4}{16.0}{-11.4}{\texttt{registrar\_deteccion}(número,
+      dirección, zona)}
+    \secMensaje{16.0}{19.2}{-12.1}{\texttt{INSERT} evento\_paso\\y estancia}
+  \end{tikzpicture}%
+  }
+  \caption{Diagrama de secuencia del registro de un cruce (HU-06 y
+           HU-07).}
+  \label{fig:p1-secuencia}
+\end{figure}
+
+El registro de un cruce (figura~\ref{fig:p1-secuencia}) no ocurre en el
+instante en que la unidad toca la línea virtual: el sistema la marca como
+\emph{pendiente} y sigue leyendo su número hasta que la unidad sale de la
+imagen. Así elige el número con más lecturas y evita registrar unidades
+que se regresan. El evento y la estancia se guardan en una sola
+transacción de la base de datos.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}
+    \secParticipantes{-13.8}{%
+      0/hi/{Hilo M2 + M3\\\scriptsize ml/hilos},
+      3.4/tg/{Avisos\\\scriptsize avisos/telegram},
+      6.8/ge/{Gemini API},
+      10.2/gr/{Grupo de\\Telegram},
+      13.6/wa/{WhatsApp\\\scriptsize cisa-whatsapp},
+      17.0/va/{Validador\\\scriptsize chat privado}}
+    \secMensaje{0}{3.4}{-1.3}{\texttt{validar\_y\_enviar}}
+    \secMensaje{3.4}{6.8}{-2.1}{foto, recorte y números\\parecidos del padrón}
+    \secRespuesta{6.8}{3.4}{-2.9}{número y veredicto}
+    \secMarco{-0.6}{-3.3}{18.4}{-10.9}{alt [Gemini confirma el mismo número]}
+    \secMensaje{3.4}{10.2}{-4.3}{aviso VERIFICADO con fotos}
+    \secMensaje{3.4}{13.6}{-5.0}{el mismo aviso}
+    \secRespuesta{3.4}{0}{-5.7}{APROBADO:\\se registra}
+    \secDivision{-0.6}{18.4}{-6.1}{Gemini no confirma la lectura}
+    \secMensaje{3.4}{10.2}{-7.0}{aviso SIN CONFIRMAR}
+    \secMensaje{3.4}{13.6}{-7.7}{el mismo aviso}
+    \secRespuesta{3.4}{0}{-8.4}{NO\_CONFIRMADO:\\no se registra*}
+    \secDivision{-0.6}{18.4}{-8.8}{desacuerdo, número fuera del padrón,
+      error o Gemini apagado}
+    \secMensaje{3.4}{17.0}{-9.8}{foto con botones Confirmar / Rechazar}
+    \secRespuesta{3.4}{0}{-10.5}{FALLBACK:\\se registra}
+    \secMarco{-0.6}{-11.3}{18.4}{-13.5}{opt [más tarde, el validador
+      responde]}
+    \secMensaje{17.0}{3.4}{-12.3}{botón Confirmar o Rechazar}
+    \secMensaje{3.4}{10.2}{-13.1}{Confirmar: aviso VERIFICADO}
+  \end{tikzpicture}%
+  }
+  \caption{Diagrama de secuencia de la validación y el aviso de un cruce
+           (HU-04 y HU-05). *Un número fuera del padrón se registra de
+           todos modos.}
+  \label{fig:p1-sec-aviso}
+\end{figure}
+
+En la validación (figura~\ref{fig:p1-sec-aviso}), Gemini decide primero;
+el validador solo interviene cuando Gemini no está de acuerdo con la
+lectura, cuando el número no está en el padrón o cuando el servicio
+falla. Los avisos del grupo de Telegram se reenvían también por WhatsApp;
+los mensajes al validador, no.
+
+\begin{aviso}[title={Observación del código}]
+En la rama \emph{FALLBACK} el cruce se registra antes de que el validador
+responda. Si después lo rechaza, las fotos se mueven a una carpeta de
+lecturas erróneas, pero el registro en la base de datos no se corrige: la
+función que debería avisar al resto del sistema
+(\texttt{set\_validation\_callback}) existe, pero ningún módulo la usa.
+\end{aviso}
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}
+    \secParticipantes{-12.5}{%
+      0/na/{Navegador\\\scriptsize dashboard\_v3.js},
+      3.4/ru/{Rutas web\\\scriptsize web/rutas},
+      6.8/es/{Estado\\\scriptsize logica/estado},
+      10.2/mt/{Métricas\\\scriptsize metricas/metricas},
+      13.6/st/{Almacenamiento\\\scriptsize metricas/storage},
+      17.0/pg/{PostgreSQL\\\scriptsize patio\_cca}}
+    \secMarco{-0.6}{-0.9}{18.4}{-4.5}{loop [cada 1 s]}
+    \secMensaje{0}{3.4}{-1.8}{GET /api/estado}
+    \secMensaje{3.4}{6.8}{-2.5}{copia del estado}
+    \secMensaje{3.4}{13.6}{-3.2}{unidades dentro y fuera del padrón hoy}
+    \secRespuesta{3.4}{0}{-3.9}{JSON}
+    \secMarco{-0.6}{-4.9}{18.4}{-9.1}{loop [cada 15 s]}
+    \secMensaje{0}{3.4}{-5.8}{GET /api/dashboard}
+    \secMensaje{3.4}{10.2}{-6.5}{\texttt{datos\_dashboard()}}
+    \secMensaje{10.2}{13.6}{-7.2}{eventos, total\\y último cruce}
+    \secMensaje{13.6}{17.0}{-7.9}{SELECT sobre\\las vistas}
+    \secRespuesta{3.4}{0}{-8.6}{indicadores\\y gráficas}
+    \secMensaje{0}{3.4}{-9.8}{GET /api/video.mjpeg}
+    \secMarco{-0.6}{-10.2}{18.4}{-12.2}{loop [10 cuadros por segundo]}
+    \secMensaje{3.4}{6.8}{-11.1}{cuadro más reciente}
+    \secRespuesta{3.4}{0}{-11.8}{JPEG de 960 px}
+  \end{tikzpicture}%
+  }
+  \caption{Diagrama de secuencia de la consulta del tablero y del video en
+           vivo (HU-01, HU-02 y HU-10).}
+  \label{fig:p1-sec-tablero}
+\end{figure}
+
+El tablero (figura~\ref{fig:p1-sec-tablero}) no recibe datos empujados
+por el servidor: el navegador pregunta cada segundo por el estado del
+sistema y cada 15~segundos por los indicadores. El video en vivo es un
+flujo MJPEG que toma el cuadro más reciente de la cámara, sin dibujar
+detecciones, por lo que no depende de los modelos.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{0.9\linewidth}{!}{%
+  \begin{tikzpicture}
+    \secParticipantes{-10.6}{%
+      0/ca/{Cámara IP},
+      3.4/ff/{Grabación\\\scriptsize grabar.sh + FFmpeg},
+      6.8/di/{Disco de\\la Jetson},
+      10.2/ru/{Rutas web\\\scriptsize web/rutas},
+      13.6/na/{Navegador\\\scriptsize coordinación}}
+    \secMarco{-0.6}{-0.9}{14.4}{-4.6}{loop [continuo]}
+    \secMensaje{3.4}{0}{-1.8}{conexión RTSP (TCP)}
+    \secRespuesta{0}{3.4}{-2.5}{video H.265}
+    \secMensaje{3.4}{6.8}{-3.2}{un MP4 por hora,\\sin recodificar}
+    \secPropio{3.4}{-3.6}{si FFmpeg se detiene,\\reintenta en 5~s}
+    \secMarco{-0.6}{-5.0}{14.4}{-6.4}{loop [cada 30 min]}
+    \secMensaje{3.4}{6.8}{-5.9}{borra lo de más de 72~h}
+    \secMensaje{13.6}{10.2}{-7.3}{GET /api/grabaciones}
+    \secMensaje{10.2}{6.8}{-8.0}{lista los MP4\\de más de 1 MB}
+    \secRespuesta{10.2}{13.6}{-8.7}{archivos y tamaño total}
+    \secMensaje{13.6}{10.2}{-9.4}{GET /grabaciones/file/...}
+    \secRespuesta{10.2}{13.6}{-10.1}{video MP4}
+  \end{tikzpicture}%
+  }
+  \caption{Diagrama de secuencia de la grabación continua y su consulta
+           (HU-09).}
+  \label{fig:p1-sec-grabacion}
+\end{figure}
+
+La grabación (figura~\ref{fig:p1-sec-grabacion}) corre en su propio
+contenedor y se conecta a la cámara por separado; por eso sigue grabando
+aunque falle la detección. El servidor web solo lista y entrega los
+archivos que ya están en el disco.
+
+\FloatBarrier
 \subsection{Protocolo de pruebas del Prototipo 1}
 \label{sec:pruebas-p1}
 

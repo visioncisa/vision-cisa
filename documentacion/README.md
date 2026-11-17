@@ -255,6 +255,8 @@ Si todavía no tienes la imagen, deja un marcador visible (compila igual):
 | `\begin{peligro} ... \end{peligro}` | Caja roja de riesgo. |
 | `\begin{lstlisting}[language=bash, caption={...}, label={...}]` | Bloque de código. |
 | `\ref{...}`, `\cite{...}` | Referencias cruzadas y bibliografía. |
+| `\secParticipantes`, `\secMensaje`, `\secRespuesta`, `\secPropio`, `\secMarco`, `\secDivision` | Diagramas de secuencia dentro de un `tikzpicture`. Ver el comentario en `cisa.sty` y los ejemplos de `06_prototipos.tex`. |
+| `\FloatBarrier` | Las figuras pendientes de colocar no pasan de este punto (útil antes de una sección nueva). |
 
 Ejemplo de código:
 
