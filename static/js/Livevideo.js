@@ -43,7 +43,10 @@ function openModal(infoStr){
         document.getElementById('modal-num').textContent=d.numero||'—';
         var empEl=document.getElementById('m-emp');
         var dirEl=document.getElementById('m-dir');
-        if(empEl)empEl.textContent=d.empresa||'—';
+        if(empEl){
+            var veh=[d.marca,d.modelo,d.anio].filter(function(x){return x;}).join(' ');
+            empEl.textContent=(d.empresa||'—')+(veh?' · '+veh:'');
+        }
         if(dirEl)dirEl.textContent=d.direccion==='entrada'?'↑ Entrada':(d.direccion==='salida'?'↓ Salida':'—');
         document.getElementById('m-leido').textContent=d.leido||d.no_detectado||d.numero||'—';
         document.getElementById('m-estado').textContent=d.estado||'—';

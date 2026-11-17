@@ -46,9 +46,9 @@ def _get_info(numero):
     return info.get("empresa", "Desconocida"), info.get("tipo", "diesel")   # fuera del padrón
 
 def _fmt_dir(d):   return "🟢 *ENTRADA*" if d == "entrada" else "🔴 *SALIDA*"
-def _fmt_tipo(t):  return "⚡ Eléctrica" if t == "electrica" else "🛢️ Diesel"
+def _fmt_tipo(t):  return {"electrica": "⚡ Eléctrica", "gasolina": "⛽ Gasolina"}.get(t, "🛢️ Diesel")
 def _fmt_emp(e):
-    return {"CISA": "🏢 CISA", "COPATSA": "🚌 COPATSA", "CCA": "🔵 CCA"}.get(e, f"🚍 {e}")
+    return {"CISA": "🏢 CISA", "COPATTSA": "🚌 COPATTSA", "CCA": "🔵 CCA"}.get(e, f"🚍 {e}")
 
 def fotos_extra(frame_path):
     """Fotos de otros momentos del mismo aviso: mismo nombre + _2, _3... (las guarda

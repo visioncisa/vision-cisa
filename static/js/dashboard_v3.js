@@ -27,6 +27,7 @@ var EMPRESA_COLOR = {
     'CORENSA':     C.amber,
     'SKYBUS':      C.teal,
     'VYCSA':       C.purple,
+    'COPATTSA':    C.ok,
     'Desconocida': C.gray
 };
 

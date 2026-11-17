@@ -146,11 +146,11 @@ for d in [FRAMES_DIR, CROPS_DIR,
     d.mkdir(parents=True, exist_ok=True)
 
 # ── Padrón de unidades ────────────────────────────────────────────────────────
-# ÚNICA fuente: padron.csv (columnas no_economico, empresa, tipo).
-# Para dar de alta o baja una unidad se edita ese archivo y se reinicia;
-# al arrancar, storage.py actualiza la tabla `unidad` de la base con él.
+# Se edita en padron.csv (columnas no_economico, empresa, tipo; tipo = electrica,
+# diesel o gasolina). Para dar de alta o baja una unidad se edita ese archivo y se
+# reinicia; al arrancar, storage.py actualiza la tabla `unidad` de PostgreSQL.
 PADRON_PATH  = Path(os.getenv("PADRON_PATH", str(PROJECT_ROOT / "padron.csv")))
-TIPOS_UNIDAD = {"electrica", "diesel"}
+TIPOS_UNIDAD = {"electrica", "diesel", "gasolina"}
 
 
 def _cargar_padron(ruta):
@@ -178,8 +178,11 @@ def _cargar_padron(ruta):
 UNIDADES_INFO    = _cargar_padron(PADRON_PATH)   # {"5038": {"empresa": "CISA", "tipo": "electrica"}, ...}
 UNIDADES_VALIDAS = set(UNIDADES_INFO)
 
-# ── Base de datos ─────────────────────────────────────────────────────────────
-# En Docker apunta al volumen: DB_PATH=datos/detecciones.db
-DB_PATH = Path(os.getenv("DB_PATH", str(PROJECT_ROOT / "detecciones.db")))
+# ── Base de datos: PostgreSQL (patio_cca) ─────────────────────────────────────
+# En el .env: DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/patio_cca
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/patio_cca")
+
+# Base SQLite anterior: solo la lee scripts/migrar_sqlite_a_postgres.py (una vez)
+DB_PATH = Path(os.getenv("DB_PATH", str(PROJECT_ROOT / "datos" / "detecciones.db")))
 
 HORA_CORTE_DIA = 3   # el día operativo empieza a las 3 a.m.

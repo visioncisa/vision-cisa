@@ -17,7 +17,7 @@ services:
     environment:
       - TZ=America/Mexico_City      # misma hora que la Jetson (el día operativo depende de esto)
     volumes:
-      - ./datos:/app/datos                    # base de datos (DB_PATH=datos/detecciones.db)
+      - ./datos:/app/datos                    # base SQLite anterior (solo para migrarla); la base es PostgreSQL
       - ./modelos:/app/modelos:ro             # modelos YOLO
       - ./padron.csv:/app/padron.csv:ro       # padrón de unidades
       - /home/jetson/Documents/Jetson8:/home/jetson/Documents/Jetson8   # fotos, recortes y video de prueba

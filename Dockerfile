@@ -49,6 +49,9 @@ assert ok, 'OpenCV sin GStreamer'" \
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+# 6) Cliente de PostgreSQL (base patio_cca). Va al final para no reconstruir lo de arriba.
+RUN pip install psycopg2-binary==2.9.13
+
 WORKDIR /app
 COPY . /app
 CMD ["python3", "pipe_stream_v2.py"]

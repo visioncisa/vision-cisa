@@ -318,7 +318,10 @@ class HiloM2M3:
 
     def _elegir_numero(self, track_id):
         conteo = self.todos_votos[track_id]
-        cands  = [n for n, v in conteo.items() if v >= N_VOTOS]
+        # Un número de 2 dígitos (la 31) puede ser un pedazo de otro (5031, 931):
+        # necesita tantas lecturas como uno fuera del padrón.
+        cands  = [n for n, v in conteo.items()
+                  if v >= (VOTOS_FUERA_PADRON if len(n) < 3 else N_VOTOS)]
         # Si el camión se lee una y otra vez con un número fuera del padrón, ese gana
         # a cualquier número "corregido" que se haya leído menos veces.
         fuera = self._fuera_padron(track_id)
