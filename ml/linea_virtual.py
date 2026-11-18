@@ -24,9 +24,13 @@ from config import LADO_ENTRADA, MANIOBRA_SEG, DEBOUNCE_SEG, MARGEN_LINEA_PX
 # ── Geometría de la línea ─────────────────────────────────────
 # LINEA_PUNTOS = [(x, y), (x, y), ...] en píxeles del frame.
 # Si no existe, se usa la línea vieja LINEA_P1 → LINEA_P2.
+# OJO: sin LINEA_PUNTOS se conserva el comportamiento de siempre (recta
+# infinita). La línea finita solo se activa cuando el .env la define: así una
+# instalación que todavía no actualizó el .env no deja de contar cruces.
 LINEA_PUNTOS = [tuple(map(float, p)) for p in
                 (getattr(_cfg, 'LINEA_PUNTOS', None)
                  or [_cfg.LINEA_P1, _cfg.LINEA_P2])]
+LINEA_FINITA = bool(getattr(_cfg, 'LINEA_PUNTOS', None))
 if len(LINEA_PUNTOS) < 2:
     raise ValueError("LINEA_PUNTOS necesita al menos 2 puntos")
 
@@ -112,8 +116,34 @@ def _se_cortan(a, b, c, d):
 
 
 def cruza_linea(desde, hasta):
-    """True si el movimiento desde → hasta atraviesa algún tramo de la línea."""
+    """True si el movimiento desde → hasta atraviesa algún tramo de la línea.
+
+    Sin LINEA_PUNTOS (línea vieja) no hay extremos: cualquier cambio de lado
+    cuenta, igual que antes de este cambio.
+    """
+    if not LINEA_FINITA:
+        return True
     return any(_se_cortan(desde, hasta, p, q) for p, q in _SEGMENTOS)
+
+
+def revisar_resolucion(ancho, alto):
+    """Avisa si la línea configurada no cabe en el cuadro que llega.
+
+    Pasa cuando las coordenadas se midieron a otra resolución (p. ej. la
+    cámara entrega Full HD y los puntos son del video de prueba 704x480).
+    Devuelve True si todos los puntos están dentro del cuadro.
+    """
+    fuera = [(int(x), int(y)) for x, y in _PUNTOS_LIMITE
+             if not (0 <= x < ancho and 0 <= y < alto)]
+    if not fuera:
+        return True
+    print("=" * 70)
+    print(f"[AVISO] La línea virtual no cabe en el cuadro: {ancho}x{alto}")
+    print(f"[AVISO] Puntos fuera de la imagen: {fuera}")
+    print("[AVISO] Revisa LINEA_PUNTOS: ¿está medida en otra resolución?")
+    print("[AVISO] Compruébala con: python3 scripts/ver_linea.py")
+    print("=" * 70)
+    return False
 
 
 def dibujar_linea(frame, color=(0, 255, 0), grosor=3):

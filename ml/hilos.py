@@ -208,6 +208,7 @@ class HiloM2M3:
         self._perdidos       = set()  # ya avisados como [PERDIDO]
         self._ult_log_m3     = {}     # última línea [M3] impresa por camión (no repetir la misma)
         self.fotos           = defaultdict(dict)  # fotos candidatas: {tid: {franja: (puntos, t, cuadro)}}
+        self._resolucion     = None   # tamaño de cuadro ya revisado (aviso de línea)
         # Medición de carga (se ve en el panel de desarrollo del tablero)
         self._n_ciclos       = 0
         self._n_m3           = 0
@@ -667,6 +668,10 @@ class HiloM2M3:
         ts_now = item["ts"]
 
         ahora = time.time()
+        alto, ancho = frame.shape[:2]
+        if self._resolucion != (ancho, alto):
+            self._resolucion = (ancho, alto)
+            linea_virtual.revisar_resolucion(ancho, alto)
         for b in buses:
             self.visto[b["tid"]] = ahora
         self._revisar_pendientes()
