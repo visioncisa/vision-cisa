@@ -568,7 +568,8 @@ class HiloM2M3:
             linea_virtual.reasociar_numero(numero_confirmado, track_id)
 
         # ── Cruce ─────────────────────────────────────────────────────────────
-        resultado = linea_virtual.evaluar_cruce(track_id, cx, cy, numero_confirmado, ts_now)
+        px, py = linea_virtual.punto_bus(bus)
+        resultado = linea_virtual.evaluar_cruce(track_id, px, py, numero_confirmado, ts_now)
 
         # Dirección: la del cruce de ahora, o la de un cruce reciente sin número
         direccion = resultado if resultado in ('entrada', 'salida') else None
@@ -675,7 +676,7 @@ class HiloM2M3:
         for b in buses:
             ya = self.reportados.get(b["tid"])
             if ya and ahora - ya < DEBOUNCE_SEG:
-                linea_virtual.evaluar_cruce(b["tid"], b["cx"], b["cy"], None, ts_now)
+                linea_virtual.evaluar_cruce(b["tid"], *linea_virtual.punto_bus(b), None, ts_now)
             else:
                 activos.append(b)
         if not activos:
