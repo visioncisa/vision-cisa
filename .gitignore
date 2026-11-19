@@ -50,6 +50,14 @@ build.log
 modelos/
 config.py.antes_votos
 
+# Reentrenamiento: imágenes, datasets, corridas y pesos NUNCA van a git
+# (sí se versionan: experimentos/*.yaml, experimentos/registro.jsonl y las listas congelado_*.txt)
+lotes/
+datasets/
+experimentos/corridas/
+experimentos/pesos/
+.pytest_cache/
+
 # WhatsApp: sesión (equivale a la contraseña de la cuenta) y librerías
 whatsapp/sesion/
 whatsapp/node_modules/

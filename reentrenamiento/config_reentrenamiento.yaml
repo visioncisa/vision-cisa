@@ -1,0 +1,45 @@
+# Configuración del reentrenamiento (NO es la de producción: esa es config.py + .env)
+# Lo que falte aquí toma el valor de reentrenamiento/configuracion.py (DEFECTOS).
+# Qué significa cada criterio: docs/POLITICA_DATASET.md y docs/EVALUACION_MODELOS.md
+
+calidad:
+  alto_normalizado: 96      # la nitidez se mide con el recorte a esta altura
+  nitidez_descartar: 15.0   # varianza del Laplaciano: menos = borrosa sin remedio
+  nitidez_revisar: 40.0     # entre 15 y 40: dudosa, entra solo si el caso es difícil
+  brillo_min: 25.0
+  brillo_max: 235.0
+  contraste_min: 12.0
+  lado_min_px: 20           # igual al BBOX_MIN_POR_TIPO['lateral'] de producción
+  noche_brillo: 70.0
+  contraluz_claros: 0.15
+  contraluz_oscuros: 0.25
+
+seleccion:
+  ventana_seg: 6.0          # mismo track y menos de 6 s = misma pasada
+  max_por_pasada: 3
+  hash_distancia_min: 6     # dHash 0-64; menos de 6 = imagen repetida
+  conf_duda: 0.50           # dígito con conf menor = dudoso (producción usa 0.45 para aceptar)
+  porc_faciles: 0.20        # muestra de control de pasadas fáciles
+  digitos_validos: [3, 4]
+  semilla: 7
+  max_total: 0              # 0 = sin tope; p. ej. 1500 para limitar un lote
+
+preanotacion:
+  imgsz: 640                # M1 y M3 = 640; M2 corre a 1280 en producción
+  conf: 0.25
+  half: true
+  lote_gpu: 64
+
+division:
+  proporciones: {train: 0.7, valid: 0.2, test: 0.1}
+  semilla: cisa             # NO cambiar: cambia en qué split cae cada pasada
+
+evaluacion:
+  iou: 0.5
+  criterios:
+    recall_caida_max: 0.01
+    precision_caida_max: 0.01
+    recall_clase_caida_max: 0.03
+    exactitud_numero_caida_max: 0.0
+    cer_aumento_max: 0.0
+    mejora_minima: 0.005

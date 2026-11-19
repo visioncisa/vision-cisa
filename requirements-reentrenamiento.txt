@@ -1,0 +1,14 @@
+# Dependencias del paquete reentrenamiento/ (NO las de producción: esas son requirements.txt).
+# Mac / PC:  pip install -r requirements-reentrenamiento.txt
+# Colab:     ya trae numpy, opencv y pyyaml; el notebook instala lo demás.
+numpy<2
+opencv-python-headless>=4.8
+pyyaml>=6.0
+
+# Solo para preanotar, entrenar y evaluar con modelos reales (Colab con GPU).
+# Misma versión que la Jetson (Dockerfile) para que los pesos sean compatibles.
+#   pip install ultralytics==8.4.171
+# Solo para bajar/subir datasets de Roboflow desde código:
+#   pip install roboflow
+# Pruebas:
+#   pip install pytest && pytest tests/
