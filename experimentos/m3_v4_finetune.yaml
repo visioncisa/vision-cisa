@@ -1,0 +1,18 @@
+# Experimento de ejemplo: fine-tuning de M3 (dígitos) desde los pesos v3.
+# Uso (Colab):  python -m reentrenamiento entrenar --experimento experimentos/m3_v4_finetune.yaml
+# Las rutas son las del notebook notebooks/colab_reentrenamiento.ipynb.
+nombre: m3_v4_finetune
+modelo: m3
+base: /content/drive/MyDrive/CISA_Reentrenamiento/modelos/modelo_digitos_v3.pt
+data: /content/datasets/m3_v4/data.yaml
+args:
+  imgsz: 640          # igual que v3 (lo verifica el .engine en la Jetson)
+  epochs: 150
+  patience: 30        # early stopping: para si 30 épocas no mejora
+  batch: 16
+  freeze: 0           # probar 10 (backbone congelado) si hay pocos datos nuevos
+  optimizer: SGD      # con "auto" Ultralytics ignora lr0
+  lr0: 0.002          # fine-tuning: menor que el defecto (0.01)
+  seed: 0
+  deterministic: true
+  plots: true
