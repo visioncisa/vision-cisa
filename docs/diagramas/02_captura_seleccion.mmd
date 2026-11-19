@@ -1,0 +1,42 @@
+%% P1 · Captura inteligente, filtrado y selección (reentrenamiento/extraer_video.py, calidad.py,
+%% redundancia.py, seleccion.py). Comando: python -m reentrenamiento seleccionar|preanotar
+flowchart TD
+    subgraph FUENTES["Fuentes (ya existen en la Jetson)"]
+        F1["Recortes que guarda producción<br/>crops_dataset/{delantero,lateral,trasera}<br/>nombre: fecha_hora_ms_numero_tTRACK.jpg"]
+        F2["Grabaciones por hora<br/>cam1_AAAAMMDD_HHMMSS.mp4 (72 h)"]
+        F3["Errores marcados por validadores<br/>telegram_unidades_erroneas/"]
+    end
+    F2 --> E1{"¿Captura por eventos<br/>o periódica?"}
+    E1 -- "Eventos" --> E2["Exportar cruces de /api/detecciones<br/>→ cuadros de -3 s a +3 s"]
+    E1 -- "Periódica" --> E3["1 cuadro cada N s<br/>(condiciones nuevas)"]
+    E2 --> E4{"¿Hay grabación para<br/>esa hora? (72 h)"}
+    E4 -- "No" --> E5["Evento sin video:<br/>se reporta, se sigue"]
+    E4 -- "Sí" --> POOL
+    E3 --> POOL
+    F1 --> POOL
+    F3 --> POOL
+    POOL["Conjunto de imágenes candidatas"] --> Q1["Medir calidad: nitidez, brillo,<br/>contraste, tamaño, tipo de luz"]
+    Q1 --> Q2{"¿Mala calidad?<br/>borrosa / oscura / chica / ilegible"}
+    Q2 -- "Sí" --> D1["DESCARTAR<br/>razón: mala_calidad:*"]
+    Q2 -- "No" --> G1["Agrupar por PASADA<br/>(zona + track + ventana 6 s)"]
+    G1 --> M1{"¿Hay modelo actual (.pt)?"}
+    M1 -- "Sí" --> M2["Predecir con v3 →<br/>lectura, conf mínima, n dígitos"]
+    M1 -- "No" --> C1
+    M2 --> C1["Consenso de lecturas<br/>por pasada"]
+    C1 --> C2{"¿Recorte difícil?<br/>sin_digitos · digitos_raros · desacuerdo ·<br/>baja_conf · sistema_distinto · fuera_padron ·<br/>condicion_nueva · calidad_dudosa"}
+    C2 -- "Ninguna razón" --> C3{"¿Pasada fácil cae en la<br/>muestra de control (20%)?"}
+    C3 -- "No" --> D2["DESCARTAR<br/>pasada_facil_fuera_de_muestra"]
+    C3 -- "Sí" --> K1["CONSERVAR 1 representante<br/>(el más nítido)"]
+    C2 -- "Sí" --> H1["Representante + hasta 3<br/>difíciles por pasada"]
+    H1 --> H2{"¿Se parece (dHash < 6)<br/>a uno ya elegido?"}
+    H2 -- "Sí" --> D3["DESCARTAR<br/>redundante"]
+    H2 -- "No" --> R1["REVISAR<br/>(humano en Roboflow)"]
+    H1 --> H3{"¿Pasó el cupo<br/>por pasada?"}
+    H3 -- "Sí" --> D4["DESCARTAR<br/>cupo_pasada"]
+    K1 --> LOTE
+    R1 --> LOTE["Lote YOLO: images/ labels/ data.yaml<br/>resumen.csv manifiesto.json"]
+
+    classDef descartar fill:#EEEEEE,stroke:#777,color:#000;
+    classDef revisar fill:#FFF4CC,stroke:#B8860B,color:#000;
+    class D1,D2,D3,D4,E5 descartar;
+    class R1 revisar;

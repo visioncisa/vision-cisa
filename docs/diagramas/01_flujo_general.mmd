@@ -1,0 +1,34 @@
+%% Flujo general: de la inspección inicial a la actualización operativa.
+%% Cada bloque grande se detalla en 02..05. Editable: https://mermaid.js.org
+flowchart TD
+    INICIO(["Inicio: se decide actualizar M1, M2 o M3"]) --> P0
+
+    subgraph P0["P0 · Auditoría y línea base"]
+        A1["Respaldar estado actual:<br/>.env, modelos/engine_nx, padron.csv, commit"] --> A2["Medir línea base en la Jetson:<br/>exactitud del número, FPS, conteo<br/>(docs/EVALUACION_MODELOS.md)"]
+        A2 --> A3{"¿Existe set de prueba<br/>congelado del modelo?"}
+        A3 -- "No" --> A4["Crearlo en el primer 'dividir'<br/>(congelado_mX.txt)"]
+        A3 -- "Sí" --> A5["Usar el mismo congelado"]
+    end
+
+    P0 --> CAP["P1 · Captura inteligente<br/>(diagrama 02)"]
+    CAP --> SEL["P1 · Filtrado y selección<br/>(diagrama 02)"]
+    SEL --> ETQ["P2 · Preanotación + revisión humana selectiva<br/>(diagrama 03)"]
+    ETQ --> ENT["P3 · Dataset versionado + fine-tuning + evaluación<br/>(diagrama 04)"]
+    ENT --> DEC{"¿Evaluación = ACEPTAR?"}
+    DEC -- "RECHAZAR" --> DIAG["Leer motivos del reporte:<br/>olvido de clase, baja exactitud,<br/>no mejora"]
+    DIAG --> R1{"¿Faltan datos o<br/>hay etiquetas malas?"}
+    R1 -- "Etiquetas" --> ETQ
+    R1 -- "Faltan casos" --> CAP
+    R1 -- "Hiperparámetros" --> ENT
+    DEC -- "ACEPTAR" --> APR1{{"Aprobación humana #1:<br/>responsable revisa el reporte"}}
+    APR1 -- "No" --> DIAG
+    APR1 -- "Sí" --> DEP["P4 · Exportar en la Jetson + canary<br/>(diagrama 05)"]
+    DEP --> FIN{"¿Canary y 48 h en producción<br/>sin regresiones?"}
+    FIN -- "No" --> RB["Rollback al modelo anterior"] --> DIAG
+    FIN -- "Sí" --> DOC["P5 · Registrar: CHANGELOG, registro.jsonl,<br/>versión del modelo en docs"]
+    DOC --> FINAL(["Fin: nueva versión operando<br/>y documentada"])
+
+    classDef humano fill:#FFF4CC,stroke:#B8860B,color:#000;
+    classDef error fill:#FDE2E2,stroke:#B22222,color:#000;
+    class APR1 humano;
+    class DIAG,RB error;

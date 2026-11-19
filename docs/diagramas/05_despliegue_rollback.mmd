@@ -1,0 +1,31 @@
+%% P4 · Exportación en la Jetson, canary y rollback (scripts/exportar_engine.sh, docs/DESPLIEGUE.md)
+flowchart TD
+    S0(["best.pt aceptado + aprobación #1"]) --> S1["Copiar best.pt a la Jetson (scp)"]
+    S1 --> S2["Horario de poco tráfico<br/>(18:00-20:00 según el tablero)"]
+    S2 --> S3["bash scripts/exportar_engine.sh mX best.pt v4"]
+    S3 --> S4{"¿Clases en orden oficial?"}
+    S4 -- "No" --> S5["Abortar: el .pt no es del<br/>dataset correcto"] --> X1(["Regresar a P3"])
+    S4 -- "Sí" --> S6{"¿Export a TensorRT OK?"}
+    S6 -- "No: versión TRT/CUDA,<br/>memoria GPU, imgsz" --> S7["Revisar log; reintentar con<br/>workspace menor o fuera de horario.<br/>Si persiste: incompatibilidad →<br/>revisar versiones del Dockerfile"] --> S3
+    S6 -- "Sí" --> S8{"¿Velocidad ≥ línea base<br/>y predicción corre?"}
+    S8 -- "No" --> S9["Jetson incompatible o modelo<br/>más pesado: no se despliega"] --> X1
+    S8 -- "Sí" --> C0["Canary con VIDEO GRABADO<br/>(modo prueba, sin tocar la cámara real)"]
+    C0 --> C1{"¿Conteo, tracking y lectura<br/>≥ v3 en el mismo video?"}
+    C1 -- "No" --> S9
+    C1 -- "Sí" --> APR{{"Aprobación humana #2:<br/>activar en producción"}}
+    APR -- "No" --> X1
+    APR -- "Sí" --> P1["Respaldar .env → cambiar ruta del modelo<br/>→ docker compose up -d --force-recreate cisa-vision"]
+    P1 --> P2{"¿Arranca y muestra<br/>'Clases M' correctas?"}
+    P2 -- "No" --> RB["ROLLBACK inmediato:<br/>restaurar .env y recrear"]
+    P2 -- "Sí" --> P3["Vigilar 48 h: descartadas, Desconocida,<br/>alternancia entrada/salida, FPS, errores"]
+    P3 --> P4{"¿Regresión en producción?"}
+    P4 -- "Sí" --> RB
+    P4 -- "No" --> OK(["Versión adoptada · CHANGELOG + registro"])
+    RB --> RB2["Documentar incidente<br/>y volver a P3"] --> X1
+
+    classDef humano fill:#FFF4CC,stroke:#B8860B,color:#000;
+    classDef error fill:#FDE2E2,stroke:#B22222,color:#000;
+    classDef ok fill:#E2F5E2,stroke:#2E7D32,color:#000;
+    class APR humano;
+    class S5,S7,S9,RB,RB2 error;
+    class OK ok;

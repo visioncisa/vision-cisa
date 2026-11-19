@@ -58,6 +58,11 @@ templates/, static/  páginas: tablero, video en vivo, grabaciones
 scripts/             herramientas de operación (ver abajo)
 Dockerfile           imagen para JetPack 7.2 (CUDA 13.2, TensorRT 10.16)
 docker-compose.yml   servicios cisa-vision (detección), cisa-grabacion y cisa-whatsapp
+reentrenamiento/     NO corre en producción: selección, pre-etiquetado, entrenamiento y evaluación
+experimentos/        experimentos de entrenamiento (YAML) y su registro
+notebooks/           Colab: el ciclo de reentrenamiento completo
+tests/               pruebas de reentrenamiento/ (pytest, sin GPU)
+docs/                auditoría, arquitectura, pipeline, diagramas, despliegue
 ```
 
 Afuera de la imagen, en la Jetson:
@@ -71,7 +76,7 @@ Afuera de la imagen, en la Jetson:
 ## Uso diario
 
 ```bash
-cd ~/Documents/ProyectoVisionCISA
+cd ~/Documents/ProyectoVisionCISA     # en la Jetson del Patio CCA: ~/Documents/ProyectoVisionCISA_R
 docker compose up -d                 # arranca detección y grabación
 docker compose ps                    # deben salir cisa-vision y cisa-grabacion en Up
 docker compose logs -f --tail 30     # mensajes (Ctrl+C para salir)
@@ -85,6 +90,11 @@ Después de cambiar el código: `docker compose build && docker compose up -d --
 
 El sistema no arranca solo al prender la Jetson (`restart: "no"` en
 `docker-compose.yml`). Para que sí arranque, cambia `restart` a `unless-stopped`.
+
+> En la Jetson del Patio CCA existe además el servicio `cisa.service` (systemd, **no está en
+> este repo**) que levanta los tres contenedores al encender: ahí se usa
+> `sudo systemctl start|stop cisa`. Si un contenedor se cae después del arranque, sigue sin
+> reiniciarse solo (ver `docs/AUDITORIA.md`, H8).
 
 ## Base de datos (PostgreSQL)
 
@@ -173,3 +183,33 @@ Todas las variables están en `.env.example`, con su explicación. Las más usad
 - Con autobús: 14 a 19 W.
 - La grabación no sube el consumo.
 - Grabación: unos 0.9 GB por hora, unos 65 GB por 72 horas.
+
+## Reentrenamiento de modelos
+
+Actualizar M1, M2 o M3 sin revisar a mano miles de recortes:
+
+```
+recortes / grabaciones → seleccionar fotogramas clave → pre-etiquetar con el modelo actual
+→ corregir solo lo difícil en Roboflow → validar → dividir (test congelado)
+→ fine-tuning en Colab → evaluar contra el modelo actual → exportar en la Jetson
+```
+
+```bash
+pip install -r requirements-reentrenamiento.txt
+python -m reentrenamiento --help
+pytest tests/
+```
+
+| Documento | Para qué |
+|---|---|
+| [docs/PIPELINE_REENTRENAMIENTO.md](docs/PIPELINE_REENTRENAMIENTO.md) | La receta paso a paso y por qué cada técnica |
+| [docs/POLITICA_DATASET.md](docs/POLITICA_DATASET.md) | Qué se conserva, descarta o revisa, y reglas de etiquetado |
+| [docs/EVALUACION_MODELOS.md](docs/EVALUACION_MODELOS.md) | Métricas y criterios para aceptar un modelo |
+| [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) | Exportar en la Jetson, canary y rollback |
+| [docs/AUDITORIA.md](docs/AUDITORIA.md) | Estado real del sistema y hallazgos |
+| [docs/DIAGRAMAS.md](docs/DIAGRAMAS.md) | Diagramas de flujo y de bloques |
+| [docs/EVALUACION_SELECCION.md](docs/EVALUACION_SELECCION.md) | Siguiente etapa: medir la selección con los 6,852 recortes de M3 |
+| [docs/PROBLEMA_VALIDAR_NUMERO.md](docs/PROBLEMA_VALIDAR_NUMERO.md) | Correcciones silenciosas del padrón (0063 → 5063): análisis y propuesta |
+| [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md), [docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md), [docs/PLAN_IMPLEMENTACION.md](docs/PLAN_IMPLEMENTACION.md), [docs/BENEFICIOS.md](docs/BENEFICIOS.md), [docs/MANTENIMIENTO.md](docs/MANTENIMIENTO.md) | Arquitectura, herramientas, plan, medición y rutina |
+
+El paquete `reentrenamiento/` no importa `config.py` ni `ml/`: corre en la Mac, en Colab o en la Jetson sin `.env` ni GPU (salvo para predecir y entrenar). Nunca suban imágenes, videos, datasets ni pesos a git.

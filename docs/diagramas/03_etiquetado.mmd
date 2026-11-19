@@ -1,0 +1,23 @@
+%% P2 · Preanotación y revisión humana selectiva (Roboflow) + control de calidad
+flowchart TD
+    L0["Lote con pre-etiquetas del modelo actual<br/>(conf 0.25: sobran cajas, no faltan)"] --> L1["Subir carpeta a Roboflow<br/>proyecto M1 / M2 / M3"]
+    L1 --> L2{"¿Roboflow la rechaza<br/>por imagen duplicada?"}
+    L2 -- "Sí" --> L3["Quitar el lote viejo sin etiquetar<br/>(requiere aprobación del responsable)"] --> L1
+    L2 -- "No" --> L4["Ordenar por etiqueta:<br/>1° sistema_distinto, desacuerdo<br/>2° baja_conf, fuera_padron, condicion_nueva<br/>3° conservar (muestreo)"]
+    L4 --> L5["Corregir cajas: una por dígito,<br/>tecla B (no polígono)"]
+    L5 --> L6{"¿Imagen legible?"}
+    L6 -- "No" --> L7["Marcar como sin objetos (null)<br/>o borrar del lote"]
+    L6 -- "Sí" --> L8["Guardar anotación"]
+    L7 --> QA
+    L8 --> QA{"Control de calidad:<br/>2a persona revisa 10% al azar"}
+    QA -- "Error > 5%" --> L9["Anotación incorrecta:<br/>devolver el lote completo<br/>+ repasar reglas"] --> L5
+    QA -- "Error ≤ 5%" --> V1["Generar versión en Roboflow<br/>(sin volteos en M3)"]
+    V1 --> V2["Exportar formato YOLO<br/>→ python -m reentrenamiento validar"]
+    V2 --> V3{"¿validar = OK?<br/>clases en orden, coords 0-1,<br/>sin polígonos, sin fuga"}
+    V3 -- "No: dataset incompleto o inválido" --> V4["Corregir en Roboflow<br/>según el reporte"] --> V1
+    V3 -- "Sí" --> V5(["Dataset listo para P3"])
+
+    classDef humano fill:#FFF4CC,stroke:#B8860B,color:#000;
+    classDef error fill:#FDE2E2,stroke:#B22222,color:#000;
+    class L3,L5,QA humano;
+    class L9,V4 error;

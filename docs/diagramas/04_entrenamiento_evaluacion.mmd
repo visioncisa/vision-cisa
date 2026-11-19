@@ -1,0 +1,31 @@
+%% P3 · Dataset versionado, fine-tuning y evaluación (Colab Pro)
+flowchart TD
+    D0["Dataset validado (export de Roboflow)"] --> D1["dividir POR PASADA<br/>(misma pasada = mismo split)"]
+    D1 --> D2{"¿Existe congelado_mX.txt?"}
+    D2 -- "No (primera vez)" --> D3["Crear test congelado con las<br/>pasadas que cayeron en test"]
+    D2 -- "Sí" --> D4["test = congelado;<br/>datos nuevos solo a train/valid"]
+    D3 --> D5
+    D4 --> D5["validar de nuevo<br/>(fuga entre splits)"]
+    D5 --> D6{"¿Hay fuga?"}
+    D6 -- "Sí" --> D7["Revisar nombres/pasadas<br/>y volver a dividir"] --> D1
+    D6 -- "No" --> T0["Experimento YAML:<br/>base = v3.pt, lr0 bajo, patience 30"]
+    T0 --> T1["entrenar → registro.jsonl<br/>(commit, hash dataset, versiones, args)"]
+    T1 --> T2{"¿El entrenamiento terminó?"}
+    T2 -- "Falló: memoria, Colab desconectado,<br/>clases fuera de orden" --> T3["Estado 'fallido' en el registro.<br/>Bajar batch / reanudar / corregir data.yaml"] --> T0
+    T2 -- "Sí" --> E0["evaluar candidato vs v3<br/>sobre el MISMO test congelado"]
+    E0 --> E1{"¿Recall o precisión global bajan<br/>más de 1 punto?"}
+    E1 -- "Sí" --> RJ["RECHAZAR"]
+    E1 -- "No" --> E2{"¿Alguna clase pierde<br/>más de 3 puntos de recall?<br/>(olvido)"}
+    E2 -- "Sí" --> RJ
+    E2 -- "No" --> E3{"M3: ¿baja la exactitud del<br/>número o sube el CER?"}
+    E3 -- "Sí" --> RJ
+    E3 -- "No" --> E4{"¿Mejora alguna métrica<br/>principal ≥ 0.5 puntos?"}
+    E4 -- "No" --> RJ
+    E4 -- "Sí" --> AC["ACEPTAR → evaluacion.md"]
+    RJ --> RJ2["Ajustar: freeze 10, más épocas,<br/>más datos del caso olvidado"] --> T0
+    AC --> SAL(["best.pt + reporte → aprobación humana"])
+
+    classDef error fill:#FDE2E2,stroke:#B22222,color:#000;
+    classDef ok fill:#E2F5E2,stroke:#2E7D32,color:#000;
+    class RJ,T3,D7 error;
+    class AC ok;
