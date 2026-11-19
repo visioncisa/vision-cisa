@@ -1,0 +1,138 @@
+% =====================================================================
+%  09_reentrenamiento.tex — Reentrenamiento eficiente de los modelos
+%  Fuente técnica: rama mejora/reentrenamiento-eficiente
+%  (paquete reentrenamiento/ y carpeta docs/ del repositorio).
+% =====================================================================
+\chapter{Reentrenamiento eficiente de los modelos}
+\label{cap:reentrenamiento}
+
+Este capítulo describe cómo actualizar los tres modelos de \saru{}
+(M1 autobús, M2 zona del número y M3 dígitos) con la menor revisión
+manual posible y sin poner en riesgo la operación del patio. Lo que aquí
+se marca \emph{Por validar} está implementado y probado con datos
+sintéticos, pero todavía no se ha medido con datos reales del patio.
+
+\section{Problema}
+
+Hasta el Prototipo~1, actualizar un modelo implicaba revisar y etiquetar
+a mano todos los recortes guardados. Al 19 de noviembre de 2026 había
+6\,852 recortes de la vista delantera de M3 sin etiquetar en Roboflow,
+con quince o más casi idénticos por cada pasada de un camión. Además se
+etiquetaban con polígonos, alrededor de un minuto por imagen, aunque M3
+es un detector de cajas. El repositorio no tenía código de
+entrenamiento, evaluación ni pruebas, y los modelos en producción se
+compilaron a TensorRT en otro equipo~\cite{tensorrt}.
+
+\begin{aviso}
+La exactitud del número completo en camiones CCA fue de 12 de 16
+(75\,\%) en una muestra revisada a mano. La muestra es pequeña: el valor
+sirve como referencia, no como medición formal.
+\end{aviso}
+
+\section{Proceso propuesto}
+
+El proceso completo es: video, eventos, extracción, filtrado, selección
+diversa, preanotación, revisión humana selectiva, dataset versionado,
+ajuste fino (\emph{fine-tuning}), evaluación y despliegue controlado.
+Cada paso es un comando de \texttt{python -m reentrenamiento}, y el
+cuaderno de Google Colab solo llama a esos mismos comandos.
+
+\figuraPendiente{09\_reentrenamiento/flujo-general.png}
+  {Flujo general del reentrenamiento con los dos puntos de aprobación
+   humana (exportar de \texttt{docs/diagramas/01\_flujo\_general.mmd}).}
+  {fig:reentr-flujo}
+
+\section{Selección de fotogramas clave}
+
+Los recortes se agrupan por \emph{pasada}: misma zona, mismo
+identificador de seguimiento de ByteTrack~\cite{zhang2022bytetrack} y
+menos de seis segundos entre recortes. El identificador ya viene en el
+nombre del archivo que guarda producción. Dentro de cada pasada se
+comparan con un \emph{hash} perceptual (dHash de 64 bits) para quitar
+repeticiones. Con el modelo actual se mide la incertidumbre de cada
+recorte, siguiendo la idea del aprendizaje activo~\cite{settles2009}.
+
+\begin{longtable}{@{}L{3.6cm}L{10.4cm}@{}}
+  \caption{Razones para mandar un recorte a revisión humana.}
+  \label{tab:reentr-razones} \\
+  \toprule
+  \textbf{Razón} & \textbf{Regla} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Razón} & \textbf{Regla} \\
+  \midrule
+  \endhead
+  \texttt{sin\_digitos} & El modelo no detectó ningún dígito. \\
+  \texttt{digitos\_raros} & Detectó una cantidad distinta de 3 o 4. \\
+  \texttt{desacuerdo} & Su lectura no coincide con el consenso de la pasada. \\
+  \texttt{baja\_conf} & Algún dígito con confianza menor a 0.50. \\
+  \texttt{sistema\_distinto} & Producción registró otro número; por ejemplo,
+    corrigió \texttt{0063} a \texttt{5063}. \\
+  \texttt{fuera\_padron} & La lectura no está en el padrón. \\
+  \texttt{condicion\_nueva} & Luz de noche o contraluz. \\
+  \bottomrule
+\end{longtable}
+
+Se descartan los recortes borrosos, oscuros, sobreexpuestos, sin
+contraste o demasiado pequeños, los repetidos y los que exceden el cupo
+de tres por pasada. Para no entrenar solo con casos difíciles, un 20\,\%
+de las pasadas sin problemas se conserva como muestra de control.
+
+\section{Preanotación y revisión}
+
+El modelo actual dibuja las cajas con un umbral bajo (0.25), porque es
+más rápido borrar una caja que dibujarla. El lote se sube a Roboflow en
+formato YOLO, y cada imagen lleva la razón por la que fue elegida para
+revisar primero los casos más útiles. Una segunda persona revisa el
+10\,\% al azar; si encuentra más de 5\,\% de errores, el lote se devuelve
+completo.
+
+\section{Dataset versionado y entrenamiento}
+
+El dataset se divide en entrenamiento, validación y prueba \emph{por
+pasada}: los recortes de un mismo camión nunca quedan en dos conjuntos.
+El conjunto de prueba se \textbf{congela} la primera vez y se reutiliza
+en cada versión, para que todas se comparen contra el mismo examen.
+
+El entrenamiento se hace en Google Colab Pro con
+Ultralytics~\cite{ultralytics} 8.4.171, la misma versión que la Jetson.
+Se parte de los pesos actuales (v3) con una tasa de aprendizaje baja y
+se combinan los datos anteriores con los nuevos. Cada corrida queda
+registrada con el \emph{commit}, el \emph{hash} del dataset, las
+versiones de software, los argumentos y las métricas.
+
+\section{Evaluación y criterios de aceptación}
+
+El modelo candidato se compara contra v3 sobre el conjunto congelado.
+Se \textbf{rechaza} si la precisión, el recall o el mAP bajan más de un
+punto, si cualquier clase pierde más de tres puntos de recall (olvido),
+o si en M3 baja la exactitud del número completo o sube el CER. Solo se
+acepta si además mejora al menos una métrica principal. Después, en la
+Jetson, se prueba con video grabado (conteo, seguimiento, lectura y
+FPS) antes de activarlo.
+
+\section{Despliegue y regreso}
+
+El \texttt{.engine} se compila en la propia Jetson en FP16, junto al
+modelo actual y sin reemplazarlo. Se activa cambiando una variable del
+\texttt{.env}, y regresar a la versión anterior toma menos de un minuto.
+Hay dos aprobaciones humanas: antes de compilar y antes de activar.
+
+\figuraPendiente{09\_reentrenamiento/bloques.png}
+  {Diagrama de bloques: infraestructura, inferencia, reentrenamiento y
+   administración (exportar de
+   \texttt{docs/diagramas/06\_bloques\_arquitectura.mmd}).}
+  {fig:reentr-bloques}
+
+\section{Estado}
+
+\begin{nota}
+\textbf{Implementado:} selección, preanotación, validación, división,
+registro de entrenamiento, evaluación, cuaderno de Colab y script de
+exportación, con 45 pruebas automáticas del paquete y 15 que documentan
+el comportamiento actual de \texttt{validar\_numero}. \textbf{Por validar:} porcentaje
+real de recortes descartados, tiempo de etiquetado con cajas
+pre-dibujadas, primer M3~v4 y ganancia de velocidad con FP16. Nada se ha
+desplegado en la Jetson.
+\end{nota}
