@@ -687,6 +687,27 @@ def trayectoria_unidad(no_economico: str, rango: str = "hoy") -> dict:
             "fecha_inicio": fecha_inicio, "fecha_fin": fecha_fin, "tramos": tramos}
 
 
+def flujo_por_dia(fecha_inicio: date, fecha_fin: date) -> dict:
+    """
+    Entradas/salidas por día operativo entre dos fechas, inclusivo (agregado
+    en SQL, sin el límite de leer_eventos()). Solo trae los días con cruces:
+    {date(2026, 11, 18): {"entradas": 150, "salidas": 163}, ...}
+    """
+    rows = _todas(
+        f"""SELECT {_dia('hora_paso')} AS dia, direccion, COUNT(*) AS cnt
+            FROM evento_paso
+            WHERE {_dia('hora_paso')} BETWEEN %s AND %s
+            GROUP BY 1, 2""",
+        (fecha_inicio.isoformat(), fecha_fin.isoformat()))
+
+    flujo = {}
+    for r in rows:
+        if r["direccion"] in ("entrada", "salida"):
+            d = date.fromisoformat(str(r["dia"]))
+            flujo.setdefault(d, {"entradas": 0, "salidas": 0})[r["direccion"] + "s"] = int(r["cnt"])
+    return flujo
+
+
 def flujo_por_anio() -> list[dict]:
     """
     Entradas/salidas por mes de los últimos 12 meses (agregado en SQL, sin
