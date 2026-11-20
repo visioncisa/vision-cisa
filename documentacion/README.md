@@ -38,15 +38,15 @@ documentacion/
 │   ├── 05_bosquejo-general.tex   requerimientos, arquitectura, base de datos
 │   ├── 06_prototipos.tex         un apartado por prototipo (hoy: Prototipo 1)
 │   ├── 07_trabajo-futuro.tex
-│   ├── 09_reentrenamiento.tex    selección, preanotación, entrenamiento, evaluación y despliegue (va antes de 08)
-│   ├── 08_conclusiones.tex
+│   ├── 08_reentrenamiento.tex    selección, etiquetado, preanotación, entrenamiento, evaluación y despliegue
+│   ├── 09_conclusiones.tex
 │   ├── A_evidencias-p1.tex       evidencias de las pruebas del Prototipo 1
 │   ├── B_glosario.tex            un término por concepto
 │   └── ...                   un archivo por capítulo
 │
 ├── figuras/                  TODAS las imágenes, separadas por capítulo
 │   ├── compartidas/          logo, iconos, imágenes de varios capítulos
-│   ├── 01_introduccion/ … 08_conclusiones/
+│   ├── 01_introduccion/ … 09_conclusiones/
 │   ├── A_evidencias_p1/      una imagen por caso de prueba: <ID>.png
 │   ├── B_glosario/
 │   └── LEEME.md              reglas para nombrar y usar imágenes

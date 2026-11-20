@@ -1,5 +1,5 @@
 % =====================================================================
-%  09_reentrenamiento.tex — Reentrenamiento eficiente de los modelos
+%  08_reentrenamiento.tex — Reentrenamiento eficiente de los modelos
 %  Fuente técnica: rama mejora/reentrenamiento-eficiente
 %  (paquete reentrenamiento/ y carpeta docs/ del repositorio).
 % =====================================================================
@@ -17,9 +17,10 @@ sintéticos, pero todavía no se ha medido con datos reales del patio.
 Hasta el Prototipo~1, actualizar un modelo implicaba revisar y etiquetar
 a mano todos los recortes guardados. Al 19 de noviembre de 2026 había
 6\,852 recortes de la vista delantera de M3 sin etiquetar en Roboflow,
-con quince o más casi idénticos por cada pasada de un camión. Además se
-etiquetaban con polígonos, alrededor de un minuto por imagen, aunque M3
-es un detector de cajas. El repositorio no tenía código de
+con quince o más casi idénticos por cada pasada de un camión. El criterio
+anterior pedía un polígono por dígito, alrededor de un minuto por imagen,
+aunque M3 es un detector de cajas; el criterio vigente se fija en la
+sección~\ref{sec:criterio-etiquetado}. El repositorio no tenía código de
 entrenamiento, evaluación ni pruebas, y los modelos en producción se
 compilaron a TensorRT en otro equipo~\cite{tensorrt}.
 
@@ -87,6 +88,41 @@ formato YOLO, y cada imagen lleva la razón por la que fue elegida para
 revisar primero los casos más útiles. Una segunda persona revisa el
 10\,\% al azar; si encuentra más de 5\,\% de errores, el lote se devuelve
 completo.
+
+\section{Criterio de etiquetado}
+\label{sec:criterio-etiquetado}
+
+M3 es un detector de cajas: cada dígito del número económico lleva una
+caja delimitadora con su clase, de \texttt{0} a \texttt{9}. No se usa una
+caja para el número completo ni un polígono por dígito.
+
+\begin{itemize}
+  \item \textbf{Una caja por dígito.} Nunca una sola caja para dos dígitos
+    ni para el número completo.
+  \item \textbf{Caja ajustada.} El contorno toca el trazo del dígito con
+    1--2 px de margen y no invade al vecino.
+  \item \textbf{Todos los dígitos legibles.} Un dígito sin anotar enseña al
+    modelo que ese trazo es fondo y produce números incompletos al armar la
+    secuencia.
+  \item \textbf{Solo el número económico.} No se etiquetan letras, logotipos,
+    placas, teléfonos ni otros números de la carrocería.
+  \item \textbf{Clases exactas.} \texttt{0} a \texttt{9}, escritas igual en
+    todas las imágenes y en el mismo orden que espera
+    \path{modelo_digitos_v3}.
+\end{itemize}
+
+El polígono se descartó por dos razones. Primero, al exportar a YOLO
+Roboflow lo convierte en una caja alineada a los ejes, así que el ajuste a
+la inclinación se pierde. Segundo, dibujarlo a mano tarda alrededor de un
+minuto por imagen, frente a unos segundos con cajas preanotadas. La
+inclinación por perspectiva se cubre con rotaciones pequeñas en los
+aumentos, no con el contorno.
+
+En los casos límite se sigue el mismo criterio de legibilidad: un dígito
+cortado por el borde se etiqueta si se ve más de la mitad y su clase es
+reconocible; uno borroso, solo si una persona lo lee con seguridad; una
+imagen sin ningún dígito legible se elimina del dataset o se marca como
+nula, nunca se deja con anotaciones dudosas.
 
 \section{Dataset versionado y entrenamiento}
 
