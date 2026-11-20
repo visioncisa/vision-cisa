@@ -159,6 +159,8 @@ Todas las variables están en `.env.example`, con su explicación. Las más usad
 | `VALIDAR_CON_GEMINI` | `1` = Gemini revisa la foto aunque Telegram esté apagado |
 | `GEMINI_API_KEY` | Clave de Gemini (solo en el `.env`, nunca en el código) |
 | `LINEA_P1`, `LINEA_P2`, `LADO_ENTRADA` | Línea virtual y lado de adentro del patio |
+| `LINEA_PUNTOS` | Línea de varios puntos `x,y;x,y;...` (reemplaza a P1/P2); termina en sus extremos. Revisar con `scripts/ver_linea.py` |
+| `LINEA_PUNTO_BUS` | `abajo` (base del recuadro, para línea en el piso) o `centro` |
 | `MARGEN_LINEA_PX` | Margen alrededor de la línea (px) donde el camión no cambia de lado |
 | `VOTOS_FUERA_PADRON` | Lecturas iguales para registrar un número que no está en el padrón (4) |
 | `FOTOS_POR_AVISO` | Fotos que se guardan y se mandan por aviso: las mejores, de momentos distintos (3) |
