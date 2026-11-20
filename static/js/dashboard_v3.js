@@ -843,8 +843,11 @@ function pollEstado() {
             }
             if ($('d-tg-pending'))   $('d-tg-pending').textContent    = d.tg_pendientes != null ? d.tg_pendientes : '0';
             if ($('d-cam-ok')) {
-                $('d-cam-ok').textContent  = d.conexion ? 'OK' : 'Sin señal';
-                $('d-cam-ok').className    = 'dev-stat-val ' + (d.conexion ? 'ok' : 'err');
+                // conexion es un texto ("conectado", "fallo", "desconectado"): siempre es
+                // verdadero como booleano, así que se compara contra "conectado".
+                var camOk = d.conexion === 'conectado';
+                $('d-cam-ok').textContent  = camOk ? 'OK' : 'Sin señal';
+                $('d-cam-ok').className    = 'dev-stat-val ' + (camOk ? 'ok' : 'err');
             }
 
             if (d.snapshot_url && !liveOk) {   // la miniatura solo mientras no hay video
@@ -874,7 +877,9 @@ function loadCropsStats() {
     fetch('/api/crops/stats')
         .then(function(r){ return r.json(); })
         .then(function(d){
-            var total = (d.autobus || 0) + (d.numero || 0);
+            // La API devuelve autobus, delantero, lateral, trasera y total (no "numero")
+            var total = d.total != null ? d.total
+                      : (d.autobus || 0) + (d.delantero || 0) + (d.lateral || 0) + (d.trasera || 0);
             if ($('d-crops')) $('d-crops').textContent = nf(total);
         })
         .catch(function(){});
