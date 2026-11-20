@@ -88,15 +88,6 @@ RELECTURA_SEG     = 2.0    # camión con número ya confirmado que no ha cruzado
 LINEA_P1       = tuple(int(x) for x in os.getenv("LINEA_P1", "455,479").split(","))
 LINEA_P2       = tuple(int(x) for x in os.getenv("LINEA_P2", "292,262").split(","))
 LADO_ENTRADA   = os.getenv("LADO_ENTRADA", "izquierda")
-# Línea de varios puntos (opcional): "x,y;x,y;x,y;..." en px de la imagen original.
-# Si está, reemplaza a LINEA_P1/LINEA_P2. La línea termina en su primer y último punto:
-# un camión que la rodea por un extremo no cuenta como cruce.
-LINEA_PUNTOS = [tuple(int(float(v)) for v in par.split(","))
-                for par in (os.getenv("LINEA_PUNTOS") or "").replace(" ", "").split(";") if par]
-LINEA_EXTENSION_PX = float(os.getenv("LINEA_EXTENSION_PX", "0"))  # alarga cada extremo (px)
-# Punto del camión que se compara con la línea: "abajo" (centro de la base del recuadro,
-# donde las llantas tocan el piso; para una línea pintada en el piso) o "centro".
-LINEA_PUNTO_BUS = (os.getenv("LINEA_PUNTO_BUS") or ("abajo" if LINEA_PUNTOS else "centro")).strip().lower()
 MANIOBRA_SEG   = int(os.getenv("MANIOBRA_SEG", 20))        # regreso antes de esto = maniobra
 DEBOUNCE_SEG   = int(os.getenv("DEBOUNCE_SEG", 60))        # mismo número no se repite antes de esto
 ESPERA_FIN_SEG = float(os.getenv("ESPERA_FIN_SEG", "2"))   # seg sin ver al camión = ya pasó

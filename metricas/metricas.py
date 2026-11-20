@@ -89,37 +89,41 @@ def _flujo_por_hora(eventos, hoy_operativo):
     }
 
 
-def _flujo_por_semana(por_dia, hoy_operativo):
-    """
-    Últimos 7 días operativos, en orden cronológico (el más viejo primero).
-    `por_dia` = {fecha: {"entradas": n, "salidas": n}} de storage.flujo_por_dia().
-    """
+def _flujo_por_semana(eventos, hoy_operativo):
+    """Últimos 7 días operativos, en orden cronológico (el más viejo primero)."""
     dias = [hoy_operativo - _dt.timedelta(days=i) for i in range(6, -1, -1)]
-    cero = {"entradas": 0, "salidas": 0}
+    flujo = {d: {"entradas": 0, "salidas": 0} for d in dias}
+
+    for ev in eventos:
+        dt = _dt.datetime.fromtimestamp(ev["ts"])
+        d  = _dia_operativo(dt)
+        if d in flujo and ev["direccion"] in ("entrada", "salida"):
+            flujo[d][ev["direccion"] + "s"] += 1
 
     labels = [_DIAS_ES[d.weekday()] for d in dias]
     return {
         "horas":    labels,
-        "entradas": [por_dia.get(d, cero)["entradas"] for d in dias],
-        "salidas":  [por_dia.get(d, cero)["salidas"]  for d in dias],
+        "entradas": [flujo[d]["entradas"] for d in dias],
+        "salidas":  [flujo[d]["salidas"]  for d in dias],
     }
 
 
-def _flujo_por_mes(por_dia, hoy_operativo):
+def _flujo_por_mes(eventos, hoy_operativo):
     """
     Últimas 4 semanas (28 días operativos) agrupadas en buckets de 7
     días: S1 = hace 22-28 días … S4 = últimos 7 días (incluye hoy).
-    `por_dia` = {fecha: {"entradas": n, "salidas": n}} de storage.flujo_por_dia().
     """
     inicio = hoy_operativo - _dt.timedelta(days=27)
     buckets = [{"entradas": 0, "salidas": 0} for _ in range(4)]
 
-    for d, conteo in por_dia.items():
+    for ev in eventos:
+        dt = _dt.datetime.fromtimestamp(ev["ts"])
+        d  = _dia_operativo(dt)
         if d < inicio or d > hoy_operativo:
             continue
         idx = min(3, (d - inicio).days // 7)
-        buckets[idx]["entradas"] += conteo["entradas"]
-        buckets[idx]["salidas"]  += conteo["salidas"]
+        if ev["direccion"] in ("entrada", "salida"):
+            buckets[idx][ev["direccion"] + "s"] += 1
 
     labels = ["S1", "S2", "S3", "S4"]
     return {
@@ -133,8 +137,11 @@ def _flujo_por_anio():
     """
     Últimos 12 meses calendario, en orden cronológico.
 
-    Igual que Semana y Mes, se agrega DIRECTO EN SQL (storage.flujo_por_anio)
-    sobre toda la tabla, sin el límite de ~5,000 filas de leer_eventos().
+    A diferencia de _flujo_por_hora/semana/mes (que trabajan sobre
+    los `eventos` ya cargados en memoria vía leer_eventos()), este
+    usa storage.flujo_por_anio() que agrega DIRECTO EN SQL sobre toda
+    la tabla — leer_eventos() solo trae ~5,000 filas recientes, que
+    no alcanzan para cubrir un año completo con el volumen actual.
     """
     meses = storage.flujo_por_anio()
     return {
@@ -150,17 +157,11 @@ def datos_dashboard():
     hoy_operativo = _dia_operativo(now)
     ayer_operativo = hoy_operativo - _dt.timedelta(days=1)
 
-    # Hoy: los eventos del día operativo (para la gráfica por hora, empresas,
-    # zonas y top). Semana y Mes: conteos por día agregados en SQL. Antes todo
-    # salía de leer_eventos(), que solo trae los 5,000 cruces más recientes:
-    # con ~250 cruces diarios, la gráfica Mes perdía sus semanas más viejas.
-    eventos    = storage.eventos_de_hoy()
-    por_dia    = storage.flujo_por_dia(hoy_operativo - _dt.timedelta(days=27), hoy_operativo)
+    eventos    = storage.leer_eventos()
     total_acum = storage.total_acumulado()
     u          = storage.ultima()
 
-    det_hoy = entradas = salidas = 0
-    det_ayer = sum(por_dia.get(ayer_operativo, {}).values())
+    det_hoy = det_ayer = entradas = salidas = 0
     # Las empresas salen del padrón (padron.csv), así una empresa nueva aparece sola
     por_empresa = {e: 0 for e in sorted({i["empresa"] for i in UNIDADES_INFO.values()})}
     por_empresa["Desconocida"] = 0
@@ -181,6 +182,8 @@ def datos_dashboard():
             if n:
                 uu = unidades.setdefault(n, {"numero": n, "empresa": ev["empresa"], "count": 0})
                 uu["count"] += 1
+        elif d == ayer_operativo:
+            det_ayer += 1
 
     promedio = round(det_hoy / max(1, len(horas_hoy)))
     top = sorted(unidades.values(), key=lambda x: x["count"], reverse=True)[:5]
@@ -202,8 +205,8 @@ def datos_dashboard():
             "ts":         _dt.datetime.fromtimestamp(u["ts"]).strftime("%H:%M:%S"),
         } if u else None),
         "por_hora":     _flujo_por_hora(eventos, hoy_operativo),
-        "por_semana":   _flujo_por_semana(por_dia, hoy_operativo),
-        "por_mes":      _flujo_por_mes(por_dia, hoy_operativo),
+        "por_semana":   _flujo_por_semana(eventos, hoy_operativo),
+        "por_mes":      _flujo_por_mes(eventos, hoy_operativo),
         "por_anio":     _flujo_por_anio(),
         "por_empresa":  por_empresa,
         "por_zona":     por_zona,

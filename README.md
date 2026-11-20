@@ -138,11 +138,10 @@ contraseña de esa cuenta: no se comparte ni se sube a GitHub.
 
 | Script | Para qué |
 |---|---|
-| `arrancar.sh` | `bash scripts/arrancar.sh`: revisa la GPU, regenera su definición para Docker y **reinicia** los servicios (`docker compose down` y `up -d`). Usar solo cuando el equipo lo indique. |
 | `fuente.py` | `python3 scripts/fuente.py camara` o `video`: cambia entre la cámara y el video de prueba. Sin argumento, muestra cuál está activa. |
 | `grabar.sh` | `bash scripts/grabar.sh estado`: dice si graba, qué archivos hay y cuánto ocupan. Avisa si no se guarda nada. |
-| `check_tailscale.py` | Monitor de cámaras por ping: avisa por Telegram si una se cae (para cron). **Solo está en la Jetson**: el `.gitignore` lo excluye del repositorio. |
-| `configurar_site.sh` | Red del patio: puerto de la placa para internet, adaptador USB para las cámaras. **Solo está en la Jetson**: el `.gitignore` lo excluye del repositorio. |
+| `check_tailscale.py` | Monitor de cámaras por ping: avisa por Telegram si una se cae (para cron). |
+| `configurar_site.sh` | Red del patio: puerto de la placa para internet, adaptador USB para las cámaras. |
 | `cargar_cat.py` | `python3 scripts/cargar_cat.py ~/catalogo.csv`: carga o actualiza el catálogo `cat`. |
 | `migrar_sqlite_a_postgres.py` | Una sola vez: pasa el histórico de `datos/detecciones.db` a PostgreSQL. |
 
@@ -159,8 +158,6 @@ Todas las variables están en `.env.example`, con su explicación. Las más usad
 | `VALIDAR_CON_GEMINI` | `1` = Gemini revisa la foto aunque Telegram esté apagado |
 | `GEMINI_API_KEY` | Clave de Gemini (solo en el `.env`, nunca en el código) |
 | `LINEA_P1`, `LINEA_P2`, `LADO_ENTRADA` | Línea virtual y lado de adentro del patio |
-| `LINEA_PUNTOS` | Línea de varios puntos `x,y;x,y;...` (reemplaza a P1/P2); termina en sus extremos. Revisar con `scripts/ver_linea.py` |
-| `LINEA_PUNTO_BUS` | `abajo` (base del recuadro, para línea en el piso) o `centro` |
 | `MARGEN_LINEA_PX` | Margen alrededor de la línea (px) donde el camión no cambia de lado |
 | `VOTOS_FUERA_PADRON` | Lecturas iguales para registrar un número que no está en el padrón (4) |
 | `FOTOS_POR_AVISO` | Fotos que se guardan y se mandan por aviso: las mejores, de momentos distintos (3) |

@@ -1,164 +1,37 @@
 """
 ml/linea_virtual.py
 ================================================================
-Línea virtual (polilínea FINITA): decide de qué lado está el bus,
-detecta el cruce, distingue entrada/salida y filtra maniobras.
-
-La línea ya no es una recta infinita entre P1 y P2: es una
-polilínea con varios puntos (LINEA_PUNTOS en config.py) que
-termina en su primer y último punto. Un cambio de lado solo
-cuenta como cruce si la trayectoria del camión atraviesa de
-verdad algún tramo de la línea; si el camión la "rodea" por un
-extremo, no se registra nada.
-
+Línea virtual diagonal: decide de qué lado está el bus, detecta
+el cruce, distingue entrada/salida y filtra maniobras.
 Si las entradas/salidas salen invertidas o no se detecta el
-cruce, el problema (o las coordenadas de LINEA_PUNTOS) está aquí.
+cruce, el problema (o las coordenadas LINEA_P1/P2) está aquí.
+
 ================================================================
 """
 import math
 import threading
 
-import config as _cfg
-from config import LADO_ENTRADA, MANIOBRA_SEG, DEBOUNCE_SEG, MARGEN_LINEA_PX
+from config import (LINEA_P1, LINEA_P2, LADO_ENTRADA, MANIOBRA_SEG, DEBOUNCE_SEG,
+                    MARGEN_LINEA_PX)
 
-# ── Geometría de la línea ─────────────────────────────────────
-# LINEA_PUNTOS = [(x, y), (x, y), ...] en píxeles del frame.
-# Si no existe, se usa la línea vieja LINEA_P1 → LINEA_P2.
-# OJO: sin LINEA_PUNTOS se conserva el comportamiento de siempre (recta
-# infinita). La línea finita solo se activa cuando el .env la define: así una
-# instalación que todavía no actualizó el .env no deja de contar cruces.
-LINEA_PUNTOS = [tuple(map(float, p)) for p in
-                (getattr(_cfg, 'LINEA_PUNTOS', None)
-                 or [_cfg.LINEA_P1, _cfg.LINEA_P2])]
-LINEA_FINITA = bool(getattr(_cfg, 'LINEA_PUNTOS', None))
-if len(LINEA_PUNTOS) < 2:
-    raise ValueError("LINEA_PUNTOS necesita al menos 2 puntos")
-
-# Tolerancia (px) para alargar un poco cada extremo de la línea.
-# 0 = la línea termina exactamente en el primer/último punto.
-LINEA_EXTENSION_PX = float(getattr(_cfg, 'LINEA_EXTENSION_PX', 0))
-
-
-LINEA_PUNTO_BUS = getattr(_cfg, 'LINEA_PUNTO_BUS', 'centro')
-
-
-def punto_bus(bus):
-    """Punto del camión que se compara con la línea (ver LINEA_PUNTO_BUS)."""
-    if LINEA_PUNTO_BUS == 'abajo':
-        x1, _, x2, y2 = bus["bbox"]
-        return (x1 + x2) // 2, y2
-    return bus["cx"], bus["cy"]
-
-
-def _extender(p, q, px):
-    """Devuelve q movido `px` píxeles más allá, en la dirección p → q."""
-    dx, dy = q[0] - p[0], q[1] - p[1]
-    L = math.hypot(dx, dy) or 1.0
-    return (q[0] + dx / L * px, q[1] + dy / L * px)
-
-
-def _construir_puntos_limite():
-    pts = list(LINEA_PUNTOS)
-    if LINEA_EXTENSION_PX > 0:
-        pts[0]  = _extender(pts[1], pts[0], LINEA_EXTENSION_PX)
-        pts[-1] = _extender(pts[-2], pts[-1], LINEA_EXTENSION_PX)
-    return pts
-
-
-_PUNTOS_LIMITE = _construir_puntos_limite()
-_SEGMENTOS     = list(zip(_PUNTOS_LIMITE[:-1], _PUNTOS_LIMITE[1:]))
-
-
-def _info_segmento(cx, cy, p, q):
-    """(distancia al tramo, producto cruz) para el punto (cx, cy)."""
-    (x1, y1), (x2, y2) = p, q
-    dx, dy = x2 - x1, y2 - y1
-    L2 = dx * dx + dy * dy or 1.0
-    t  = max(0.0, min(1.0, ((cx - x1) * dx + (cy - y1) * dy) / L2))
-    dist = math.hypot(cx - (x1 + t * dx), cy - (y1 + t * dy))
-    cruz = dx * (cy - y1) - dy * (cx - x1)
-    return dist, cruz
-
-
-def _tramo_cercano(cx, cy):
-    return min((_info_segmento(cx, cy, p, q) for p, q in _SEGMENTOS),
-               key=lambda r: r[0])
+_estado_tracks = {}
+_debounce_nums = {}
+_tracks_lock   = threading.Lock()
 
 
 def lado_actual(cx, cy):
-    """Lado respecto al tramo más cercano (misma convención que antes)."""
-    _, cruz = _tramo_cercano(cx, cy)
+    x1, y1 = LINEA_P1
+    x2, y2 = LINEA_P2
+    cruz = (x2 - x1) * (cy - y1) - (y2 - y1) * (cx - x1)
     return 'izquierda' if cruz > 0 else 'derecha'
 
 
 def distancia_linea(cx, cy):
-    """Distancia (px) del centro del camión a la línea (finita)."""
-    return _tramo_cercano(cx, cy)[0]
-
-
-def _orient(a, b, c):
-    v = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
-    return (v > 0) - (v < 0)
-
-
-def _se_cortan(a, b, c, d):
-    """¿El segmento a-b corta al segmento c-d?"""
-    o1, o2 = _orient(a, b, c), _orient(a, b, d)
-    o3, o4 = _orient(c, d, a), _orient(c, d, b)
-    if o1 != o2 and o3 != o4:
-        return True
-
-    def _sobre(p, q, r):  # r colineal y dentro de p-q
-        return (min(p[0], q[0]) <= r[0] <= max(p[0], q[0]) and
-                min(p[1], q[1]) <= r[1] <= max(p[1], q[1]))
-    return ((o1 == 0 and _sobre(a, b, c)) or (o2 == 0 and _sobre(a, b, d)) or
-            (o3 == 0 and _sobre(c, d, a)) or (o4 == 0 and _sobre(c, d, b)))
-
-
-def cruza_linea(desde, hasta):
-    """True si el movimiento desde → hasta atraviesa algún tramo de la línea.
-
-    Sin LINEA_PUNTOS (línea vieja) no hay extremos: cualquier cambio de lado
-    cuenta, igual que antes de este cambio.
-    """
-    if not LINEA_FINITA:
-        return True
-    return any(_se_cortan(desde, hasta, p, q) for p, q in _SEGMENTOS)
-
-
-def revisar_resolucion(ancho, alto):
-    """Avisa si la línea configurada no cabe en el cuadro que llega.
-
-    Pasa cuando las coordenadas se midieron a otra resolución (p. ej. la
-    cámara entrega Full HD y los puntos son del video de prueba 704x480).
-    Devuelve True si todos los puntos están dentro del cuadro.
-    """
-    fuera = [(int(x), int(y)) for x, y in _PUNTOS_LIMITE
-             if not (0 <= x < ancho and 0 <= y < alto)]
-    if not fuera:
-        return True
-    print("=" * 70)
-    print(f"[AVISO] La línea virtual no cabe en el cuadro: {ancho}x{alto}")
-    print(f"[AVISO] Puntos fuera de la imagen: {fuera}")
-    print("[AVISO] Revisa LINEA_PUNTOS: ¿está medida en otra resolución?")
-    print("[AVISO] Compruébala con: python3 scripts/ver_linea.py")
-    print("=" * 70)
-    return False
-
-
-def dibujar_linea(frame, color=(0, 255, 0), grosor=3):
-    """Dibuja la polilínea sobre el frame (sustituye al cv2.line de P1→P2)."""
-    import cv2
-    import numpy as np
-    pts = np.array(LINEA_PUNTOS, dtype=np.int32).reshape(-1, 1, 2)
-    cv2.polylines(frame, [pts], isClosed=False, color=color, thickness=grosor)
-    return frame
-
-
-# ── Estado de los tracks ──────────────────────────────────────
-_estado_tracks = {}
-_debounce_nums = {}
-_tracks_lock   = threading.Lock()
+    """Distancia (px) del centro del camión a la línea."""
+    x1, y1 = LINEA_P1
+    x2, y2 = LINEA_P2
+    cruz = (x2 - x1) * (cy - y1) - (y2 - y1) * (cx - x1)
+    return abs(cruz) / (math.hypot(x2 - x1, y2 - y1) or 1.0)
 
 
 def evaluar_cruce(track_id, cx, cy, numero, timestamp):
@@ -168,7 +41,7 @@ def evaluar_cruce(track_id, cx, cy, numero, timestamp):
     with _tracks_lock:
         if tid not in _estado_tracks:
             _estado_tracks[tid] = {
-                'lado': lado, 'pos': (cx, cy), 'ultimo_cruce': None,
+                'lado': lado, 'ultimo_cruce': None,
                 'numero': numero, 'eventos': []
             }
             print(f"[CRUCE] track={track_id} primer avistamiento — lado inicial={lado}")
@@ -178,24 +51,13 @@ def evaluar_cruce(track_id, cx, cy, numero, timestamp):
         if numero and not estado_t['numero']:
             estado_t['numero'] = numero
 
+        if lado == estado_t['lado']:
+            return None
         if distancia_linea(cx, cy) < MARGEN_LINEA_PX:
             return None        # dentro del margen: todavía no cambia de lado
 
-        if lado == estado_t['lado']:
-            estado_t['pos'] = (cx, cy)   # última posición "segura" de este lado
-            return None
-
-        lado_anterior    = estado_t['lado']
-        pos_anterior     = estado_t.get('pos')
+        lado_anterior   = estado_t['lado']
         estado_t['lado'] = lado
-        estado_t['pos']  = (cx, cy)
-
-        # Línea finita: el cambio de lado solo cuenta si la trayectoria
-        # atraviesa la línea; si la rodeó por un extremo, se ignora.
-        if pos_anterior is not None and not cruza_linea(pos_anterior, (cx, cy)):
-            print(f"[FUERA] track={track_id} n={numero} — cambió de lado "
-                  f"fuera de los límites de la línea, no cuenta")
-            return None
 
         if estado_t['ultimo_cruce'] is not None:
             elapsed = timestamp - estado_t['ultimo_cruce']
@@ -240,7 +102,6 @@ def reasociar_numero(numero, track_id):
                 if tid not in _estado_tracks:
                     _estado_tracks[tid] = {
                         'lado':         estado_t['lado'],
-                        'pos':          estado_t.get('pos'),
                         'ultimo_cruce': estado_t['ultimo_cruce'],
                         'numero':       numero,
                         'eventos':      estado_t['eventos'],
