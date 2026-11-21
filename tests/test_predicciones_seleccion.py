@@ -104,6 +104,37 @@ def test_correccion_silenciosa_del_padron_se_detecta(tmp_path, cfg):
     assert dec[0].decision == REVISAR and "sistema_distinto" in dec[0].razones
 
 
+def _pasada_con_lecturas_de_produccion(tmp_path, cfg):
+    # misma pasada (track 9): producción leyó 5051 tres veces, "505" una vez y nada ("unk") otra
+    archivos = [
+        ("delantero/20261015_133950_000_5051_t9.jpg", placa("5051")),
+        ("delantero/20261015_133951_000_5051_t9.jpg", placa("5051", desplazar=2)),
+        ("delantero/20261015_133952_000_5051_t9.jpg", placa("5051", desplazar=4)),
+        ("delantero/20261015_133952_289_505_t9.jpg", placa("505", fondo=150, desplazar=22)),
+        ("delantero/20261015_133953_000_unk_t9.jpg", placa("50", fondo=120, desplazar=40)),
+    ]
+    return _preparar(tmp_path, cfg, archivos)
+
+
+def test_senales_de_produccion_sin_modelo(tmp_path, cfg):
+    cfg["seleccion"]["porc_faciles"] = 0.0      # sin las señales, la pasada se descartaría completa
+    rutas, infos, cal, hs = _pasada_con_lecturas_de_produccion(tmp_path, cfg)
+    dec = {Path(d.ruta).name: d for d in seleccionar(infos, cal, hs, None, DIG, cfg["seleccion"], cfg["calidad"])}
+    assert "sistema_minoria" in dec["20261015_133952_289_505_t9.jpg"].razones
+    assert "sistema_sin_lectura" in dec["20261015_133953_000_unk_t9.jpg"].razones
+    assert not any(r.startswith("sistema") for r in dec["20261015_133950_000_5051_t9.jpg"].razones)
+    elegidas = [d for d in dec.values() if d.decision != DESCARTAR]
+    assert 1 <= len(elegidas) <= cfg["seleccion"]["max_por_pasada"]
+    assert any(d.decision == REVISAR for d in elegidas)
+
+
+def test_senales_de_produccion_se_pueden_apagar(tmp_path, cfg):
+    cfg["seleccion"].update({"porc_faciles": 0.0, "usar_lectura_sistema": False})
+    rutas, infos, cal, hs = _pasada_con_lecturas_de_produccion(tmp_path, cfg)
+    dec = seleccionar(infos, cal, hs, None, DIG, cfg["seleccion"], cfg["calidad"])
+    assert all(d.decision == DESCARTAR for d in dec)
+
+
 def test_mala_calidad_se_descarta(tmp_path, cfg):
     borrosa = cv2.GaussianBlur(placa(), (31, 31), 15)
     rutas, infos, cal, hs = _preparar(tmp_path, cfg, [("lateral/20261118_100000_000_unk_t5.jpg", borrosa)])

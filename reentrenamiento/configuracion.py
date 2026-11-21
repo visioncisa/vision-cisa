@@ -34,6 +34,7 @@ DEFECTOS: Dict[str, Any] = {
         "conf_duda": 0.50,             # conf mínima de un dígito por debajo = dudoso
         "porc_faciles": 0.20,          # % de pasadas fáciles que se conservan como control
         "digitos_validos": [3, 4],
+        "usar_lectura_sistema": True,  # usar el número que leyó producción (nombre del archivo)
         "semilla": 7,
         "max_total": 0,                # 0 = sin tope
     },

@@ -5,6 +5,7 @@ Formato: fecha · rama · qué cambió. Las versiones de modelos van en su propi
 ## Sin publicar — rama `mejora/reentrenamiento-eficiente`
 
 ### Agregado
+- (20 nov) Selección: razones `sistema_minoria` y `sistema_sin_lectura`, que usan la lectura de producción del nombre del archivo (`seleccion.usar_lectura_sistema`). Con los 13,989 recortes de M3 la selección pasa de 858 (6.1 %) a 1,793 (12.8 %) y ya no descarta pasadas con lecturas inconsistentes. +2 pruebas (62 en total).
 - Paquete `reentrenamiento/` (CLI `python -m reentrenamiento`): extracción por eventos y periódica, calidad, deduplicación por pasada y hash, selección conservar/revisar/descartar con razones, lote YOLO pre-etiquetado para Roboflow, validador de datasets con detección de fuga, división por pasada con test congelado, entrenamiento con registro reproducible y evaluación con criterios de aceptación.
 - `tests/`: 45 pruebas del paquete (sin GPU, sin `.env`) + 15 pruebas de caracterización de `validar_numero` que fijan el comportamiento ACTUAL de producción sin importarla (`tests/test_validar_numero_produccion.py`).
 - `docs/PROBLEMA_VALIDAR_NUMERO.md`: análisis de las correcciones silenciosas (0063 → 5063, 505 → 5005), cómo medir su impacto y propuesta de corrección **no aplicada**.

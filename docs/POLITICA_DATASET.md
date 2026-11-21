@@ -35,6 +35,8 @@ Cada recorte recibe una de tres decisiones (`reentrenamiento/seleccion.py`, umbr
 | `baja_conf` | Algún dígito con confianza < 0.50 |
 | `sistema_distinto` | Producción registró otro número (p. ej. corrigió "0063" a "5063") |
 | `fuera_padron` | La lectura no está en el padrón |
+| `sistema_minoria` | En la misma pasada, producción leyó un número distinto al más repetido (sin modelo; viene en el nombre del archivo) |
+| `sistema_sin_lectura` | Producción vio la zona del número pero no leyó nada (`unk`) |
 | `condicion_nueva` | Luz de noche (brillo < 70) o contraluz |
 | `calidad_dudosa` | Nitidez entre 15 y 40: legible, pero difícil |
 

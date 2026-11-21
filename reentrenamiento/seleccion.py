@@ -14,6 +14,9 @@ Reglas, en este orden (docs/POLITICA_DATASET.md las explica):
        baja_conf         algún dígito con conf < conf_duda
        sistema_distinto  producción registró otro número
        fuera_padron      la lectura no está en el padrón
+       sistema_sin_lectura   producción vio la zona pero no leyó nada ('unk')   ┐ sin modelo:
+       sistema_minoria   producción leyó en esta pasada otro número       ┘ vienen en el
+                         distinto al más repetido (ej. 505 vs 5051)          nombre del archivo
        condicion_nueva   luz poco representada (noche/contraluz)
        calidad_dudosa    nitidez baja (no descartable)
   3. Cada pasada conserva su recorte más nítido como representante.
@@ -89,11 +92,13 @@ def seleccionar(infos: Sequence[InfoRecorte],
     porc_faciles = float(cfg_sel.get("porc_faciles", 0.2))
     semilla = cfg_sel.get("semilla", 7)
     usa_digitos = list(nombres_clases) == [str(d) for d in range(10)]
+    usa_sistema = usa_digitos and bool(cfg_sel.get("usar_lectura_sistema", True))
 
     decisiones: List[Decision] = []
     for gi, grupo in enumerate(agrupar_pasadas(infos, float(cfg_sel.get("ventana_seg", 6.0)))):
         filas: List[Decision] = []
         lecturas = []
+        con_track = {str(i.ruta) for i in grupo if i.track is not None}
         for info in grupo:
             clave = str(info.ruta)
             cal = calidades.get(clave)
@@ -112,6 +117,11 @@ def seleccionar(infos: Sequence[InfoRecorte],
 
         consenso = Counter(lecturas).most_common(1)[0][0] if lecturas else ""
         utiles = [d for d in filas if not d.decision]
+        # Señal SIN modelo: lo que producción leyó (viene en el nombre del archivo).
+        # Si la misma pasada tiene lecturas distintas, las de la minoría son difíciles.
+        leidas_sist = Counter(d.numero_sistema for d in utiles if d.numero_sistema)
+        consenso_sist = leidas_sist.most_common(1)[0][0] if leidas_sist else ""
+        sist_inconsistente = len(leidas_sist) > 1
         for d in utiles:
             d.consenso = consenso
             pred = predicciones.get(d.ruta)
@@ -130,6 +140,11 @@ def seleccionar(infos: Sequence[InfoRecorte],
                     r.append("sistema_distinto")
                 if usa_digitos and padron and d.lectura_modelo and d.lectura_modelo not in padron:
                     r.append("fuera_padron")
+            if usa_sistema and d.ruta in con_track:
+                if not d.numero_sistema:
+                    r.append("sistema_sin_lectura")
+                elif sist_inconsistente and d.numero_sistema != consenso_sist:
+                    r.append("sistema_minoria")
             if cal is not None and cal.luz in luz_rara:
                 r.append("condicion_nueva")
             if es_dudosa(cal, cfg_cal):

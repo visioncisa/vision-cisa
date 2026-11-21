@@ -21,6 +21,7 @@ seleccion:
   conf_duda: 0.50           # dígito con conf menor = dudoso (producción usa 0.45 para aceptar)
   porc_faciles: 0.20        # muestra de control de pasadas fáciles
   digitos_validos: [3, 4]
+  usar_lectura_sistema: true  # lecturas distintas o 'unk' de producción en la pasada = caso difícil
   semilla: 7
   max_total: 0              # 0 = sin tope; p. ej. 1500 para limitar un lote
 

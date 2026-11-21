@@ -65,17 +65,50 @@ Tiempos:
 - Si no se cumple, se ajusta `config_reentrenamiento.yaml` (`hash_distancia_min`, `max_por_pasada`, `nitidez_descartar`, `porc_faciles`) y se repite la corrida 2 y la auditoría solo del grupo que falló.
 - Los ajustes y sus resultados se anotan en este documento y en `CHANGELOG.md`.
 
-## 6. Resultados (llenar al ejecutar)
+## 6. Resultados
+
+### Corrida 1 — sin modelo (19 nov 2026, Mac, 16 s)
+Datos: **toda** la carpeta `Jetson8/crops_dataset/delantero` copiada de la Jetson (solo lectura): **13,989 recortes**, 27 días entre el 11 jun y el 19 nov 2026, 172 MB. Los 6,852 de Roboflow son un subconjunto, pero **no se pudieron aislar** porque falta la lista de nombres del trabajo de Roboflow.
 
 | Medida | Sin modelo (corrida 1) | Con modelo (corrida 2) |
 |---|---|---|
-| Recortes evaluados | por medir | por medir |
-| Pasadas | por medir | por medir |
-| Elegidos (conservar + revisar) | por medir | por medir |
-| Descartados por calidad / redundancia / fácil | por medir | por medir |
-| % a etiquetar | por medir | por medir |
-| Falsos descartes (IC 95 %) | — | por medir |
-| Horas ahorradas (revisión + etiquetado) | — | por medir |
+| Recortes evaluados | 13,989 (100 % con nombre válido: fecha + track) | por medir |
+| Pasadas | 2,448 (mediana: 2 recortes; máximo: 745; 557 de un solo recorte) | por medir |
+| Elegidos (conservar + revisar) | **858** (536 representantes + 322 a revisar) | por medir |
+| Descartados | 13,131: 7,947 pasada fácil fuera de la muestra · 5,144 cupo por pasada · 27 mala calidad · 14 repetidos | por medir |
+| % a etiquetar | **6.1 %** (11 jun: 1.1 % de 3,918 · oct-nov: 8.1 % de 10,071) | por medir |
+| Luz de los elegidos | día 559 · noche 205 · contraluz 94 (de 12,790 / 908 / 291 en el total) | por medir |
+| Falsos descartes (IC 95 %) | por medir (auditoría humana, §3) | por medir |
+| Horas de etiquetado (a 60-90 s por recorte, una observación) | todo: 233-350 h → elegidos: 14-21 h | por medir |
+
+### Hallazgo: la corrida sin modelo pierde casos difíciles
+Sin predicciones, solo cuentan como difíciles la luz y la nitidez. Por eso se descartaron completas pasadas que sí tenían señales de dificultad, **disponibles sin modelo en el nombre del archivo**:
+- **339** pasadas descartadas en las que **producción leyó números distintos** para el mismo camión (de 515 pasadas así en total).
+- **137** pasadas descartadas con al menos una lectura fallida de producción (`unk`).
+
+Conclusión: el 6.1 % era un **mínimo**. Se corrigió con la opción (b): usar la lectura de producción como señal (corrida 1b).
+
+### Corrida 1b — sin modelo + lecturas de producción (20 nov 2026, Mac)
+`seleccion.py` agrega dos razones, controladas por `seleccion.usar_lectura_sistema` (activado por defecto):
+- `sistema_minoria`: en la pasada, producción leyó un número distinto al más repetido (p. ej. `505` contra `5051`).
+- `sistema_sin_lectura`: producción vio la zona pero no leyó nada (`unk`).
+
+| Medida | Corrida 1 | **Corrida 1b** |
+|---|---|---|
+| Elegidos (conservar + revisar) | 858 (536 + 322) | **1,793** (679 + 1,114) |
+| % a etiquetar | 6.1 % | **12.8 %** (11 jun: 128 · oct-nov: 1,665) |
+| Pasadas descartadas con lecturas distintas de producción | 339 | **0** |
+| Pasadas descartadas con `unk` | 137 | **2** (una borrosa y una demasiado chica: descarte correcto) |
+| Descartados | 13,131 | 12,196: 8,199 cupo por pasada · 3,497 pasada fácil · 474 repetidos · 27 mala calidad |
+| Recortes marcados por señal de producción | — | `sistema_minoria` 2,539 · `sistema_sin_lectura` 1,241 (antes del cupo de 3 por pasada) |
+| Horas de etiquetado (60-90 s por recorte) | 14-21 h | **30-45 h** (contra 233-350 h si se etiqueta todo: **≈ 87 % menos**) |
+
+Se cumplió lo esperado: menos del 15 % del total. La estimación de horas usa el tiempo con polígonos desde cero; con pre-etiquetas debería ser menor (por medir).
+
+### Lo que todavía no se sabe
+- **Cuántos descartes eran útiles**: requiere la auditoría humana (§3).
+- **Cifras exactas para los 6,852 de Roboflow**: requiere la lista de nombres de ese trabajo.
+- **Tiempo real de etiquetado con pre-etiquetas**: requiere cronometrar (§4).
 
 ## 7. Herramientas pendientes (para la siguiente iteración)
 
